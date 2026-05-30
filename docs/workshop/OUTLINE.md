@@ -1,7 +1,7 @@
 ---
 project: "fem-kubernetes"
 maturity: "draft"
-last_updated: "2026-05-16"
+last_updated: "2026-05-29"
 updated_by: "@staff-engineer"
 scope: "Master agenda for the Frontend Masters 'Kubernetes' two-day workshop (June 2-3, 2026). Maps all 32 FEM segments to the three-stage container-orchestration progression (POC, Stable, Scale)."
 status: "draft"
@@ -221,7 +221,13 @@ The instructor opens with the workshop's promise: across two days, students will
 
 **Stage:** Foundations.
 
-No code. The instructor establishes the one idea the rest of the workshop leans on: Kubernetes is a control loop that continuously drives the cluster's *actual* state toward a *desired* state you declare. Containers, the control plane versus worker nodes, and the words "reconciliation" and "desired state" are introduced. The instructor explicitly defers all syntax — students should leave this segment with a model, not a manifest.
+No code. The instructor establishes the one idea the rest of the workshop leans on — a Kubernetes **control loop** — through two everyday analogies, then names the real terms underneath them.
+
+First, **cruise control**. You set a desired speed — 65 mph — and the car takes over: it senses the actual speed, and whenever the two differ it adjusts the throttle to close the gap. That is the whole control loop. You set 65 (the **desired state**); the car reads how fast it's actually going (the **actual state**); and it keeps nudging the throttle to match (**reconciliation**). The instructor stresses that this never stops — it is not a one-time correction but a loop running continuously. On a hill the car presses the throttle harder to hold 65 against the drag: the same loop, correcting against a disturbance, is **self-healing**. Kubernetes works exactly this way — you declare the state you want, and it never stops driving the cluster toward it.
+
+Then the instructor zooms out from one car to a whole **restaurant kitchen** to show how a cluster is organized. Tickets on the rail are the **desired state** — every dish that's been ordered. The head chef reading the rail and assigning each dish runs the **control plane**; the line cooks at their stations, who actually cook the food (the **containers**), are the **worker nodes**. Handing a dish to a station that has room is **scheduling**. And when a cook gets slammed or walks off, the chef simply reassigns that dish to another station — **self-healing**, now at the level of the whole cluster rather than one car. This is the **control plane versus worker nodes** split the rest of the workshop builds on.
+
+The instructor explicitly defers all syntax — students should leave this segment with a model, not a manifest.
 
 ---
 
