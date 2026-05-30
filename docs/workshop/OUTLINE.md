@@ -227,6 +227,39 @@ First, **cruise control**. You set a desired speed — 65 mph — and the car ta
 
 Then the instructor zooms out from one car to a whole **restaurant kitchen** to show how a cluster is organized. Tickets on the rail are the **desired state** — every dish that's been ordered. The head chef reading the rail and assigning each dish runs the **control plane**; the line cooks at their stations, who actually cook the food (the **containers**), are the **worker nodes**. Handing a dish to a station that has room is **scheduling**. And when a cook gets slammed or walks off, the chef simply reassigns that dish to another station — **self-healing**, now at the level of the whole cluster rather than one car. This is the **control plane versus worker nodes** split the rest of the workshop builds on.
 
+The two diagrams below anchor each analogy to the real term. Every box names the everyday thing and the Kubernetes word for it. They are models, not manifests — there is deliberately no syntax in them.
+
+The cruise-control loop runs forever, closing the gap between what you asked for and what is actually happening:
+
+```mermaid
+flowchart LR
+    C1["Set 65 mph<br/>Desired state"]:::found
+    C2["Sense actual speed<br/>Actual state"]:::found
+    C3["Adjust throttle<br/>Reconciliation"]:::found
+    H["Hill slows the car<br/>Disturbance"]:::interlude
+    C1 --> C2 --> C3 --> C1
+    H -. "Hold 65 anyway<br/>Self-healing" .-> C3
+
+    classDef interlude fill:#ddd,stroke:#666,color:#222
+    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+```
+
+The kitchen shows the same loop scaled up to a whole cluster — the control plane reading orders and driving the worker nodes that do the cooking:
+
+```mermaid
+flowchart TB
+    K1["Tickets on the rail<br/>Desired state"]:::found
+    K2["Head chef<br/>Control plane"]:::found
+    K3["Line cook stations<br/>Worker nodes"]:::found
+    K4["Dishes<br/>Containers"]:::found
+    K1 --> K2
+    K2 -- "Hand dish to an open station<br/>Scheduling" --> K3
+    K3 --> K4
+    K2 -. "Reassign a dropped dish<br/>Self-healing" .-> K3
+
+    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+```
+
 The instructor explicitly defers all syntax — students should leave this segment with a model, not a manifest.
 
 ---
@@ -236,6 +269,35 @@ The instructor explicitly defers all syntax — students should leave this segme
 **Stage:** Foundations.
 
 The instructor installs `kind`, runs `kind create cluster` with the multi-node config, and explores the result: `kubectl get nodes`, `kubectl cluster-info`, and what a kube-context is. Students confirm a working local cluster. This segment exists so that "just get a Pod running" in segment 4 has somewhere to run.
+
+The `kind` cluster keeps the kitchen analogy honest while staying small enough to run on a laptop: `kind` runs the Kubernetes nodes as containers on the local container runtime — one control-plane node and two workers. Every part the analogy named has a real counterpart here, and the same part will reappear, larger, on a cloud cluster in Day 2. The diagram below contrasts what the local cluster gives students today against what a cloud cluster (EKS) provides later — the cloud column names categories only, as a forward reference, not Day-1 material:
+
+```mermaid
+flowchart LR
+    subgraph KIND["Your kind cluster — today"]
+        direction TB
+        L1["Head chef<br/>Control plane<br/>on your laptop"]:::found
+        L2["Cook stations<br/>Worker nodes<br/>containers on one machine<br/>(1 control-plane + 2 workers)"]:::found
+        L3["Walk-in fridge<br/>Storage / volumes<br/>local-path — wiped on restart"]:::found
+        L4["Maitre d<br/>Ingress / front door<br/>NodePort / ingress-nginx side door"]:::found
+    end
+    subgraph CLOUD["A cloud cluster (EKS) — Day 2"]
+        direction TB
+        R1["Head chef<br/>Control plane<br/>managed, always-on (highly available)<br/>Day 2 — you'll build this"]:::production
+        R2["Cook stations<br/>Worker nodes<br/>real separate machines<br/>Day 2 — you'll build this"]:::production
+        R3["Walk-in fridge<br/>Storage / volumes<br/>durable — survives restarts<br/>Day 2 — you'll build this"]:::production
+        R4["Maitre d<br/>Ingress / front door<br/>real load balancer / front entrance<br/>Day 2 — you'll build this"]:::production
+    end
+    L1 -.-> R1
+    L2 -.-> R2
+    L3 -.-> R3
+    L4 -.-> R4
+
+    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    classDef production fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+```
+
+The storage and ingress rows are where the workshop's recurring theme first bites: the Kubernetes resource — a `PersistentVolumeClaim`, an `Ingress` — is a stable contract that stays the same across both columns, while the controller that satisfies it is environment-specific. On `kind` a local-path provisioner and `ingress-nginx` back those resources; on EKS a cloud provisioner and load balancer do. Students will not write either yet; the point is that the same declaration they make today keeps working when the controller behind it changes in Day 2.
 
 **Time-budget warning:** 30 minutes covers install plus first-cluster exploration. If a student's container runtime is misconfigured, do not debug it on stage — point them at the pre-flight checklist and the `poc` branch and move on.
 
