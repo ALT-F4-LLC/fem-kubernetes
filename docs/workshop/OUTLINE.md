@@ -367,7 +367,7 @@ Configuration moves out of inline environment variables. The database connection
 
 **Stage:** Stable.
 
-The `NodePort` from POC is replaced. The instructor installs the `ingress-nginx` controller on `kind`, then writes an `Ingress` resource with host and path routing to the app's Service. The talking point separates the `Ingress` resource (a stable contract) from the controller that fulfills it (environment-specific) — a distinction segment 25 pays off on EKS.
+The `NodePort` from POC is replaced. The instructor installs the `ingress-nginx` controller on `kind`, then writes an `Ingress` resource with host and path routing to the app's Service. The talking point separates the `Ingress` resource (a stable contract) from the controller that fulfills it (environment-specific) — a distinction segment 26 pays off on EKS.
 
 ---
 
@@ -393,11 +393,11 @@ A required talking point (per design choices above): the instructor explains tha
 
 **Stage:** Stable. End of Stable stage.
 
-Stable has accumulated a dozen manifests. The instructor introduces a Kustomize **base**: a `kustomization.yaml` collecting the manifests, applied with `kubectl apply -k`. No new behavior — this is housekeeping that segment 26's overlays will build on.
+Stable has accumulated a dozen manifests. The instructor introduces a Kustomize **base**: a `kustomization.yaml` collecting the manifests, applied with `kubectl apply -k`. No new behavior — this is housekeeping that segment 27's overlays will build on.
 
 The end-of-Stable recap closes the stage: the app is declarative, probed, resource-bounded, ingress-fronted, and durably backed by Postgres. The instructor names what is still wrong: it runs on exactly one local cluster, scaling is manual, a bad deploy takes the app down with no rollback discipline, the workload runs under an over-permissioned default ServiceAccount, and there is no story for surviving a node going away. Production will solve all of it.
 
-**Time-budget warning:** Segment 14 is 15 minutes. Keep the Kustomize introduction to "base only." Overlays are segment 26 — do not preview them here.
+**Time-budget warning:** Segment 14 is 15 minutes. Keep the Kustomize introduction to "base only." Overlays are segment 27 — do not preview them here.
 
 ---
 
