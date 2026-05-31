@@ -1226,3 +1226,69 @@ What is still wrong — every item is a Production segment:
 - **There is no story for surviving a node going away.** A lost node is an outage. Production adds PodDisruptionBudgets and the cloud-cluster machinery to ride through it.
 
 That is Stable: the state you would hand a teammate. Production is the state you would hand an on-call rotation, and it solves every remaining item above.
+
+### One last picture: same bricks, three builds
+
+That first Recap line — *it runs on exactly one local cluster* — is the hook for one last mental picture before Day 2. Do not build anything here. This is a talk-over-diagram, four to six minutes, and then we close the day.
+
+- **A Kubernetes cluster is a LEGO build.** The bricks are the component blocks you have met all stage — control plane, worker nodes, networking, storage, ingress, DNS, secrets, autoscaling, and your app. A cluster is those bricks snapped onto one baseplate. *Say it out loud: "You already own the brick set. The only question is which build you snap them into."*
+- **The same brick set builds three very different clusters.** An edge device, a self-hosted cluster, and a managed cloud cluster are the same nine bricks on the same baseplate — but some bricks are swapped for a differently-shaped one that does the same job, and one brick is missing entirely. *Say it out loud: "Same resources, same app. What changes underneath is the controller, not the contract."*
+- **This is the contract-versus-controller theme, assembled.** All stage you met it one resource at a time — an `Ingress` is a contract, `ingress-nginx` is the controller fulfilling it. The three builds are that same idea for a whole cluster at once.
+
+**The three builds.** Define each crisply before walking the matrix:
+
+| Build | One-line definition | Representative form |
+|---|---|---|
+| **Edge / device** | A tiny cluster living on or beside a device, resource-constrained, often a single node. | k3s / k0s-style lightweight distro: control plane bundled into one process, ARM common. |
+| **Self-hosted** | A cluster you stand up and operate yourself on your own machines or VMs — the "vanilla" full build. | kubeadm / bare-metal or VMs: you install and own every layer. |
+| **Cloud** | A managed Kubernetes cluster where the provider runs the control plane for you. | Amazon EKS — exactly what the workshop builds on Day 2 (Production). |
+
+**How to read a brick.** Each cell in the matrix below is one of three states:
+
+- **P** — present, same brick: the same component, the same controller, in all builds.
+- **D** — present, different-shaped brick: the same resource (the contract) fulfilled by a different controller (the implementation).
+- **A** — absent / greyed out: the block is missing in that build, and the gap is the lesson.
+
+The matrix — nine blocks down, three builds across:
+
+| # | Block | Edge / device | Self-hosted | Cloud (EKS) |
+|---|---|---|---|---|
+| 1 | **Control plane** | **D** — bundled single process, co-located with the workload, often not HA (k3s packs apiserver + scheduler + controller-manager + datastore into one) | **D** — the full control plane you install and own; you run etcd, HA, upgrades | **D** — managed, highly-available EKS control plane; you never touch the masters (PRODUCTION Seg 24) |
+| 2 | **Worker nodes / compute** | **D** — one or a few nodes, often the same box as the control plane; ARM common | **D** — discrete machines or VMs you provision and join | **D** — real EC2 worker nodes provisioned via an `eksctl`-managed node group (PRODUCTION Seg 24) |
+| 3 | **Container networking (CNI)** *(the runtime is containerd in all three; the CNI is what varies)* | **D** — a lightweight bundled CNI for footprint (e.g. flannel) | **D** — you choose and install it (Calico / Cilium) — "you must choose" is the point | **D** — the AWS VPC CNI; Pods get real VPC IP addresses |
+| 4 | **Storage (CSI / PVC)** | **D** — local-path provisioner (`standard` StorageClass), ephemeral, wiped on restart — *this is exactly what your `kind` cluster has* | **D** — a storage system you run yourself (Ceph / Longhorn / NFS) | **D** — the EBS CSI driver with a `gp3` StorageClass: dynamic, durable block volumes — no EFS (PRODUCTION Seg 25) |
+| 5 | **Ingress + load balancer** | **D** — `ingress-nginx` reached via host port-mapping; **no real external load balancer** (on `kind`, the `Ingress` ADDRESS shows `localhost`) — *this is exactly what your `kind` cluster has* | **D** — ingress-nginx / Traefik plus a self-managed LB (MetalLB) to stand in for a cloud LB | **D** — the AWS Load Balancer Controller provisions a real ALB that fulfills the **same** `Ingress` resource (PRODUCTION Seg 26) |
+| 6 | **DNS (CoreDNS)** | **P** — CoreDNS | **P** — CoreDNS | **P** — CoreDNS *(anchor brick — in-cluster service discovery is CoreDNS in all three; cloud DNS for external names is additionally available but the workshop does not wire it)* |
+| 7 | **Secrets / credentials** *(the Secret object is the same brick everywhere; the lock behind it differs)* | **D** — Secret object present; encryption-at-rest often off by default | **D** — Secret object present; you wire etcd encryption / KMS yourself | **D** — Secret object present; EKS envelope-encrypts Secrets at rest by default on 1.28+ (AWS-owned KMS key; customer key is opt-in); SealedSecrets sealed per-cluster (PRODUCTION Seg 23) |
+| 8 | **Autoscaling (pod-level HPA)** | **A** — no metrics-server by default, so no HPA — *this is where your `kind` cluster starts* | **D** — HPA works *if* you install metrics-server | **P** — HPA backed by metrics-server, exactly as the workshop teaches it (PRODUCTION Seg 17); node autoscaling (Cluster Autoscaler / Karpenter) is never taught — out of scope |
+| 9 | **Application + database (Node API + CNPG)** | **P** — same Deployment + CNPG | **P** — same Deployment + CNPG | **P** — same Deployment + CNPG *(anchor brick — same in all three; plugs into whatever storage brick #4 provides)* |
+
+**Reading the matrix — talking points:**
+
+Do not read the matrix cell by cell. Point at it, then talk these five points — the cells are reference for later.
+
+- **Your `kind` cluster lives near the EDGE / local end of this picture — not the cloud end.** What students built in Stable is a non-HA control plane (a single control-plane node, plus two workers), local-path `standard` storage, `ingress-nginx` with no real external load balancer, and no autoscaling. Read down the edge column and you are largely reading your own cluster. *Say it out loud so nobody mistakes `kind` for the cloud build: "The cluster on your laptop is the left-hand column. Day 2 is the journey to the right-hand one."*
+- **The two all-P rows (6 and 9) are your anchors** — point them out first so the variation below them reads as variation around a stable core. If a reader feels lost in the variation, the anchors are the "you are here."
+- **Rows 3, 4, 5, 7 are all-D and that is the whole lesson** — same resource, three different controllers. Each cell names the concrete controller on purpose; do not abstract them away. An all-D row is not inconsistency — it is the contract-versus-controller theme made literal.
+- **Row 8 is the "absence" row** — and a tie-in: the workshop's own `kind` cluster *starts* at "A" for the HPA and only *earns* "P" in PRODUCTION Segment 17, where you install metrics-server because `kind` ships none. The matrix's edge column is where every student's cluster began this morning.
+- **Rows 1 and 2 are all-D too** — control plane and worker nodes take a *different form* in every build (bundled at the edge, self-operated when you host it, managed on EKS); there is no single "baseline" form even in the self-hosted column.
+
+> **Node autoscaling is deliberately out of this matrix.** The workshop teaches only **pod-level** autoscaling (the HPA, PRODUCTION Seg 17). Cluster Autoscaler and Karpenter are never taught and are intentionally absent from every column — row 8 is HPA only, end to end, so the matrix matches what Day 2 actually delivers.
+
+> These three clusters are a thought experiment, not a lab. The workshop builds exactly two clusters — the local `kind` cluster you have now, and the EKS cluster in Day 2. If someone asks to build the edge or self-hosted version on stage, decline: the point of this picture is to *read* the differences, not to assemble them. The cloud column is a forward reference to the Production segments, not material for today.
+
+**The three builds, drawn.** Each illustration is the same nine-slot baseplate with the same brick positions; only the brick in each slot changes. The captions stand on their own if the images are not yet rendered.
+
+![Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, ingress, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/lego-edge-cluster.png)
+
+*Edge build: the same app on the smallest possible cluster — and the closest match to the `kind` cluster on your laptop. The control plane and nodes collapse toward one box, storage is ephemeral, and there is no HPA brick at all (no metrics-server to feed it).*
+
+![Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, ingress, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-selfhosted-cluster.png)
+
+*Self-hosted build: the vanilla, you-own-everything cluster. Every controller behind a resource is one you installed yourself — control plane, nodes, networking, storage, and the rest are all a different form from the edge and cloud builds.*
+
+![Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, ingress, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-cloud-cluster.png)
+
+*Cloud build (EKS): the control plane becomes a sealed brick you never open, and the HPA — pod-level autoscaling — is finally a solid brick. This is the only one of the three the workshop actually builds, on Day 2.*
+
+**Bridge to Day 2.** The cloud column is the only build the workshop assembles for real — that is the whole Production stage, migrating these exact manifests onto a managed EKS cluster where the sealed control-plane brick and the solid HPA brick finally snap into place.
