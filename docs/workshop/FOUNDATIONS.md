@@ -91,7 +91,7 @@ Stand up a working local Kubernetes cluster with `kind` and explore it, so stude
 
 - **`kind` keeps the kitchen analogy honest while fitting on a laptop.** It runs the Kubernetes nodes as containers on the local container runtime: one control-plane node (the head chef) and two worker nodes (the cook stations). Every part the analogy named has a real counterpart here, and the same parts reappear, larger, on a cloud cluster in Day 2.
 - **A kube-context is which kitchen `kubectl` is talking to.** Creating the cluster writes a context into the kubeconfig and makes it current; every `kubectl` command from here targets that cluster until the context changes. On Day 2 a second context (EKS) will appear, and switching contexts is how the one-cluster-at-a-time rule is enforced.
-- **The resource is a contract; the controller is environmental.** Preview the workshop's recurring theme with the diagram below: a `PersistentVolumeClaim` or an `Ingress` is a stable declaration that stays the same across local and cloud, while the controller that satisfies it differs. On `kind`, a local-path provisioner and `ingress-nginx` back those resources; on EKS, a cloud provisioner and a load balancer do. Students write neither yet — the point is that the declaration they make today keeps working when the controller behind it changes in Day 2. The cloud column names categories only, as a forward reference, not Day-1 material.
+- **The resource is a contract; the controller is environmental.** Preview the workshop's recurring theme with the diagram below: a `PersistentVolumeClaim`, or a `Gateway` plus an `HTTPRoute`, is a stable declaration that stays the same across local and cloud, while the controller that satisfies it differs. On `kind`, a local-path provisioner and NGINX Gateway Fabric back those resources; on EKS, a cloud provisioner and the AWS Load Balancer Controller do. Students write neither yet — the point is that the declaration they make today keeps working when the controller behind it changes in Day 2. The cloud column names categories only, as a forward reference, not Day-1 material.
 
 The diagram contrasts what the local cluster gives students today against what a cloud cluster (EKS) provides later:
 
@@ -102,14 +102,14 @@ flowchart LR
         L1["Head chef<br/>Control plane<br/>on your laptop"]:::found
         L2["Cook stations<br/>Worker nodes<br/>containers on one machine<br/>(1 control-plane + 2 workers)"]:::found
         L3["Storage / volumes<br/>local-path — wiped on restart"]:::found
-        L4["Ingress / front door<br/>NodePort / ingress-nginx side door"]:::found
+        L4["Gateway + HTTPRoute / front door<br/>NGINX Gateway Fabric — NodePort on a laptop"]:::found
     end
     subgraph CLOUD["A cloud cluster (EKS) — Day 2"]
         direction TB
         R1["Head chef<br/>Control plane<br/>managed, always-on (highly available)<br/>Day 2 — you'll build this"]:::production
         R2["Cook stations<br/>Worker nodes<br/>real separate machines<br/>Day 2 — you'll build this"]:::production
         R3["Storage / volumes<br/>durable — survives restarts<br/>Day 2 — you'll build this"]:::production
-        R4["Ingress / front door<br/>real load balancer / front entrance<br/>Day 2 — you'll build this"]:::production
+        R4["Gateway + HTTPRoute / front door<br/>real load balancer / front entrance<br/>Day 2 — you'll build this"]:::production
     end
     L1 -.-> R1
     L2 -.-> R2

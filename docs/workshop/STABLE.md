@@ -1,10 +1,10 @@
 # Stable — Instructor Guide
 
-This is the **Stable** stage of the workshop — OUTLINE segments 8-14, the Day-1 afternoon block (12:45-4:15) that immediately follows lunch. It takes the deliberately-wrong POC stack and turns every wrong choice into the right one: imperative commands become declarative manifests in git, the app gains health probes and resource limits, the secret moves out of shell history, a real Ingress replaces the NodePort, and the ephemeral Postgres is replaced by a durable CloudNativePG cluster. By the end of this stage the app is the state you would hand a teammate — declarative, probed, resource-bounded, ingress-fronted, and durably Postgres-backed — though still on one local cluster with no autoscaling, rollback discipline, or node-loss story. Those are Production's job.
+This is the **Stable** stage of the workshop — OUTLINE segments 8-14, the Day-1 afternoon block (12:45-4:15) that immediately follows lunch. It takes the deliberately-wrong POC stack and turns every wrong choice into the right one: imperative commands become declarative manifests in git, the app gains health probes and resource limits, the secret moves out of shell history, a real front door — a `Gateway` and an `HTTPRoute` — replaces the NodePort, and the ephemeral Postgres is replaced by a durable CloudNativePG cluster. By the end of this stage the app is the state you would hand a teammate — declarative, probed, resource-bounded, gateway-fronted, and durably Postgres-backed — though still on one local cluster with no autoscaling, rollback discipline, or node-loss story. Those are Production's job.
 
 **Stage at a glance.**
-- **Delivers:** declarative manifests in git, health probes, resource limits, a real Ingress, durable CloudNativePG Postgres, and the secret out of shell history.
-- **End state:** the app you'd hand a teammate — declarative, probed, resource-bounded, ingress-fronted, durably Postgres-backed — on one local cluster.
+- **Delivers:** declarative manifests in git, health probes, resource limits, a real front door (a `Gateway` and an `HTTPRoute`), durable CloudNativePG Postgres, and the secret out of shell history.
+- **End state:** the app you'd hand a teammate — declarative, probed, resource-bounded, gateway-fronted, durably Postgres-backed — on one local cluster.
 - **Next:** Production adds autoscaling, rollout/rollback, node-loss survival, GitOps, and the EKS migration.
 
 **How to read this guide.** Each segment below follows the same fixed section order — Goal, Talking points, Live build, Watch for, then an optional Anticipated questions, then Transition — so your eye lands in the same place every time. The fenced command blocks are exactly what you type on stage; one logical step per block, with prose between blocks narrating the build. Output blocks are **representative** — they show the shape and the teaching signal a command produces, not a literal capture, so pod-name suffixes, ages, IPs, and CNPG-generated credentials will differ on your machine. Every hand-authored secret value shown is **deliberately fake**.
@@ -162,7 +162,7 @@ kubectl apply -f postgres.yaml
 deployment.apps/postgres created
 ```
 
-**Step 6 — Service manifests.** Write the two Services as manifests, making the `selector` explicit. The `postgres` Service is a `ClusterIP`; the app Service is still a `NodePort` here (the Ingress that replaces it is segment 11).
+**Step 6 — Service manifests.** Write the two Services as manifests, making the `selector` explicit. The `postgres` Service is a `ClusterIP`; the app Service is still a `NodePort` here (the `Gateway` that replaces it is segment 11).
 
 ```bash
 cat > service.yaml <<'EOF'
@@ -609,58 +609,62 @@ Be precise about that last one on a recording: encryption of Secrets **at rest i
 
 ### Transition
 
-Configuration now lives in a ConfigMap, the password in a cluster-only Secret, and the app in its own namespace — and we have named the gap that the imperative Secret leaves open. Next we replace the last crude piece of POC networking: the NodePort. The app gets a real front door via an Ingress.
+Configuration now lives in a ConfigMap, the password in a cluster-only Secret, and the app in its own namespace — and we have named the gap that the imperative Secret leaves open. Next we replace the last crude piece of POC networking: the NodePort. The app gets a real front door via the Gateway API — a `Gateway` and an `HTTPRoute` fulfilled by a controller we install on the cluster.
 
 ---
 
-## Segment 11 — 2:30 — Ingress
+## Segment 11 — 2:30 — Gateway API
 
 **Stage:** Stable.
 **Duration:** 30 minutes.
 
 ### Goal
 
-Replace the POC NodePort with a real front door. Install the `ingress-nginx` controller on the `kind` cluster, then write an `Ingress` resource with host and path routing to the app's Service. The teaching point is the split between the `Ingress` resource — a stable, portable contract — and the controller that fulfills it, which is environment-specific. That split is the same lesson the storage segments teach, and it pays off on EKS in segment 26 where the AWS Load Balancer Controller fulfills the very same `Ingress`.
+Replace the POC NodePort with a real front door. Install NGINX Gateway Fabric on the `kind` cluster, then write a `Gateway` (a listener) and an `HTTPRoute` (host and path routing to the app's Service). The teaching point is the split between the route — a stable, portable contract — and the controller that fulfills it, which is environment-specific. That split is the same lesson the storage segments teach, and it pays off on EKS in segment 26 where the AWS Load Balancer Controller fulfills the very same `Gateway` and `HTTPRoute`.
 
 ### Talking points
 
-- **The Ingress resource is a contract; the controller is the implementation.** An `Ingress` declares *how traffic should be routed* — host, path, target Service — and says nothing about *how* that routing is realized. A controller watches `Ingress` resources and makes them real. The resource is portable; the controller is chosen per environment.
-- **That is why we install a controller separately.** An `Ingress` with no controller does nothing — it is a declaration nobody is acting on. On `kind` we install `ingress-nginx`; on EKS in Day 2 we install the AWS Load Balancer Controller. Same `Ingress` resource, different controller. This is the two-controllers-on-purpose design: students see firsthand that the resource survives the environment change.
-- **This replaces the NodePort.** POC reached the app through a raw node port — crude, and not how you expose a real app. The Ingress is the stable, named entry point that real clusters use. The NodePort Service can become a plain `ClusterIP` now that the Ingress fronts it.
-- **`ingress-nginx` on `kind` needs the node to accept ingress traffic.** `kind` has a documented manifest for the controller that works with its port mappings; that is what we apply. The mechanism is environment-specific — exactly the point.
+- **The route is a contract; the controller is environment-specific.** A `Gateway` plus an `HTTPRoute` declares *how traffic should reach the app* — a listener, plus host, path, and target Service — and says nothing about *how* that routing is realized. A controller watches these resources and makes them real. The route is portable; the controller is chosen per environment, named by the `GatewayClass` the `Gateway` points at.
+- **Three resources where Ingress was one — but only one new idea.** Gateway API splits the old single `Ingress` into roles: a `GatewayClass` (cluster-scoped, names the controller), a `Gateway` (the listener), and an `HTTPRoute` (the routing rules). The `GatewayClass` is install-time plumbing — the controller's manifest installs it and you just reference it by name, exactly as `IngressClass` worked. The `Gateway` and `HTTPRoute` are the listener-plus-rules split you half-saw inside the old `Ingress` spec, now named separately.
+- **That is why we install a controller separately.** A `Gateway` with no controller does nothing — it is a declaration nobody is acting on. On `kind` we install NGINX Gateway Fabric, whose `GatewayClass` is named `nginx`; on EKS in Day 2 we install the AWS Load Balancer Controller. Same `Gateway` and `HTTPRoute`, different controller. This is the two-controllers-on-purpose design: students see firsthand that the route survives the environment change.
+- **This replaces the NodePort.** POC reached the app through a raw node port — crude, and not how you expose a real app. The `Gateway` is the stable, named entry point that real clusters use. The NodePort Service can become a plain `ClusterIP` now that the `Gateway` fronts it.
+- **NGINX Gateway Fabric on `kind` needs the node to accept gateway traffic.** NGF ships a NodePort manifest variant for local clusters like `kind`, which exposes the data plane on a node port that `kind`'s host port-mapping forwards from `localhost`; that is what we apply. The mechanism is environment-specific — exactly the point.
 
 ### Live build
 
-Install the `ingress-nginx` controller using its published manifest for `kind`. This is the environment-specific piece — the controller that will fulfill the Ingress resource we write next. The `main` URL below is illustrative; apply the specific version you pinned in pre-flight rather than a moving branch ref.
+Install NGINX Gateway Fabric in three steps: the Gateway API standard-channel CRDs (the route's API types), NGF's own CRDs, then the controller in its NodePort variant for `kind`. This is the environment-specific piece — the controller that will fulfill the `Gateway` and `HTTPRoute` we write next. The version refs below are illustrative; apply the specific version you pinned in pre-flight rather than a moving ref.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=vX.Y.Z" | kubectl apply -f -
+kubectl apply --server-side -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/vX.Y.Z/deploy/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/vX.Y.Z/deploy/nodeport/deploy.yaml
 ```
 
 ```text
-namespace/ingress-nginx created
-serviceaccount/ingress-nginx created
-configmap/ingress-nginx-controller created
-service/ingress-nginx-controller created
-deployment.apps/ingress-nginx-controller created
-ingressclass.networking.k8s.io/nginx created
+customresourcedefinition.apiextensions.k8s.io/gatewayclasses.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/gateways.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/httproutes.gateway.networking.k8s.io created
+...
+namespace/nginx-gateway created
+deployment.apps/nginx-gateway created
+service/nginx-gateway created
+gatewayclass.gateway.networking.k8s.io/nginx created
 ...
 ```
 
-Wait for the controller to be ready before writing the Ingress — an Ingress applied before its controller is up simply waits, but it is cleaner to gate on the controller.
+The NodePort manifest is self-contained — it creates its own `nginx-gateway` namespace and the `nginx` `GatewayClass`, and generates its own internal certificates, so there is no extra controller to install and nothing to install before it. Wait for the controller to be ready before writing the `Gateway` — resources applied before the controller is up simply wait, but it is cleaner to gate on the controller.
 
 ```bash
-kubectl wait --namespace ingress-nginx \
-  --for=condition=Ready pod \
-  --selector=app.kubernetes.io/component=controller \
+kubectl wait --namespace nginx-gateway \
+  --for=condition=Available deployment/nginx-gateway \
   --timeout=120s
 ```
 
 ```text
-pod/ingress-nginx-controller-7d9c4b5f8-2xq4r condition met
+deployment.apps/nginx-gateway condition met
 ```
 
-Turn the app's Service from a `NodePort` into a plain `ClusterIP` — the Ingress fronts it now, so it no longer needs to be reachable directly from the host. Set `type: ClusterIP` **explicitly**: `kubectl apply` reconciles fields you declare, and omitting `type` would leave the live Service's existing `type: NodePort` in place rather than flipping it. Spell it out so the NodePort is actually retired.
+Turn the app's Service from a `NodePort` into a plain `ClusterIP` — the `Gateway` fronts it now, so it no longer needs to be reachable directly from the host. Set `type: ClusterIP` **explicitly**: `kubectl apply` reconciles fields you declare, and omitting `type` would leave the live Service's existing `type: NodePort` in place rather than flipping it. Spell it out so the NodePort is actually retired.
 
 ```bash
 cat > service.yaml <<'EOF'
@@ -709,48 +713,71 @@ NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
 sample-app   ClusterIP   10.96.88.114    <none>        8080/TCP   5m
 ```
 
-Write the Ingress resource: host and path routing to the app's Service. This is the portable contract — it would read the same on any cluster.
+Write the `Gateway`: a listener on port 80 that points at the `nginx` `GatewayClass`. The `gatewayClassName` is the one environment-specific line — it selects the controller. On EKS in segment 26 this is the only field that changes.
 
 ```bash
-cat > ingress.yaml <<'EOF'
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+cat > gateway.yaml <<'EOF'
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
   name: sample-app
   namespace: <app-namespace>
 spec:
-  ingressClassName: nginx
-  rules:
-    - host: sample-app.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: sample-app
-                port:
-                  number: 8080
+  gatewayClassName: nginx
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
 EOF
-kubectl apply -f ingress.yaml
+kubectl apply -f gateway.yaml
 ```
 
 ```text
-ingress.networking.k8s.io/sample-app created
+gateway.gateway.networking.k8s.io/sample-app created
 ```
 
-Confirm the Ingress has an address — the controller has wired it up.
+Write the `HTTPRoute`: host and path routing to the app's Service, attached to the `Gateway`. This is the portable contract — it would read the same on any cluster, regardless of which controller fulfills the `Gateway` it attaches to.
 
 ```bash
-kubectl get ingress -n <app-namespace>
+cat > httproute.yaml <<'EOF'
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sample-app
+  namespace: <app-namespace>
+spec:
+  parentRefs:
+    - name: sample-app
+  hostnames:
+    - sample-app.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: sample-app
+          port: 8080
+EOF
+kubectl apply -f httproute.yaml
 ```
 
 ```text
-NAME         CLASS   HOSTS              ADDRESS     PORTS   AGE
-sample-app   nginx   sample-app.local   localhost   80      20s
+httproute.gateway.networking.k8s.io/sample-app created
 ```
 
-Reach the app through the Ingress instead of a node port. With the `kind` ingress mapping, requests to the host route through the controller to the app's Service.
+Confirm the `Gateway` has an address and is `PROGRAMMED` — the controller has wired it up.
+
+```bash
+kubectl get gateway -n <app-namespace>
+```
+
+```text
+NAME         CLASS   ADDRESS     PROGRAMMED   AGE
+sample-app   nginx   localhost   True         20s
+```
+
+Reach the app through the `Gateway` instead of a node port. NGF's NodePort data plane is reached through `kind`'s host port-mapping, so requests to `localhost` route through the controller to the app's Service — the `HTTPRoute`'s `sample-app.local` host rule still selects the route, sent as a `Host` header.
 
 ```bash
 curl -H "Host: sample-app.local" http://localhost/healthz
@@ -760,27 +787,29 @@ curl -H "Host: sample-app.local" http://localhost/healthz
 ok
 ```
 
-Commit the Ingress and the simplified Service.
+Commit the `Gateway`, the `HTTPRoute`, and the simplified Service.
 
 ```bash
-git add ingress.yaml service.yaml
-git commit -m "Replace NodePort with ingress-nginx and an Ingress resource"
+git add gateway.yaml httproute.yaml service.yaml
+git commit -m "Replace NodePort with NGINX Gateway Fabric, a Gateway, and an HTTPRoute"
 ```
 
 ```text
-[stable d4e5f6a] Replace NodePort with ingress-nginx and an Ingress resource
- 2 files changed, 22 insertions(+), 5 deletions(-)
+[stable d4e5f6a] Replace NodePort with NGINX Gateway Fabric, a Gateway, and an HTTPRoute
+ 3 files changed, 38 insertions(+), 5 deletions(-)
 ```
 
 ### Watch for
 
-- **`404` or connection refused through the Ingress.** Either the controller is not ready yet (`kubectl get pods -n ingress-nginx`), the `Host` header does not match the Ingress `host` rule, or the backend Service name/port is wrong. Confirm the controller Pod is `Running`, send the exact `Host` the rule expects, and check `kubectl get endpoints sample-app -n <app-namespace>` lists the app Pod.
-- **`ingressClassName` mismatch.** If the Ingress shows no address, the `ingressClassName` may not match the installed controller's class (`nginx`). `kubectl get ingressclass` shows what is installed; the Ingress `ingressClassName` must match.
-- **The published manifest URL changes.** Pinning to `main` can drift; if the controller manifest fails to apply, fall back to a pinned `ingress-nginx` release tag from its releases page rather than debugging a moving target on stage.
+- **The `Gateway` is not `PROGRAMMED` or the `HTTPRoute` is not `Accepted`.** Check the status conditions directly: `kubectl get gateway sample-app -n <app-namespace> -o "jsonpath={.status.conditions}"` should show `Programmed=True`, and `kubectl get httproute sample-app -n <app-namespace> -o "jsonpath={.status.parents}"` should show `Accepted=True`. A `Gateway` stuck without `Programmed` usually means the controller is not running yet (`kubectl get pods -n nginx-gateway`); an `HTTPRoute` not `Accepted` usually means its `parentRefs` name does not match a `Gateway` in the same namespace.
+- **`gatewayClassName` mismatch.** If the `Gateway` never gets an address, its `gatewayClassName` may not match an installed `GatewayClass`. `kubectl get gatewayclass` shows what is installed (`nginx` for NGF); the `Gateway`'s `gatewayClassName` must match one of them.
+- **`404` or connection refused through the `Gateway`.** Either the `Host` header does not match the `HTTPRoute` `hostnames` rule, or the backend Service name/port is wrong. Send the exact `Host` the rule expects and check `kubectl get endpoints sample-app -n <app-namespace>` lists the app Pod.
+- **NGF NodePort not reachable on `kind`.** If the controller is `PROGRAMMED` but `curl` to `localhost` still refuses, the node port the NGF data plane listens on may not be one `kind`'s `extraPortMappings` forwards from host :80. This is the cross-environment wiring the NodePort manifest depends on; verify the `kind` cluster config maps the host port to the NodePort the manifest uses, and adjust the cluster config if needed.
+- **The published manifest refs change.** Pinning to a moving ref can drift; if any of the three apply steps fails, fall back to the exact NGF release tag you pinned in pre-flight from its releases page rather than debugging a moving target on stage.
 
 ### Transition
 
-The app now has a real, portable front door — an `Ingress` resource fulfilled by a controller we chose for this environment, with the NodePort retired. Stable has fixed networking, config, probes, and resource bounds. The last POC sin left is the ephemeral database, and fixing it well means meeting a new Kubernetes pattern first: the operator. The next segment teaches that pattern before we use it.
+The app now has a real, portable front door — a `Gateway` and an `HTTPRoute` fulfilled by a controller we chose for this environment, with the NodePort retired. Stable has fixed networking, config, probes, and resource bounds. The last POC sin left is the ephemeral database, and fixing it well means meeting a new Kubernetes pattern first: the operator. The next segment teaches that pattern before we use it.
 
 ---
 
@@ -1110,7 +1139,7 @@ git commit -m "Replace ephemeral Postgres with durable CloudNativePG Cluster"
 
 ### Transition
 
-Postgres is now durable, operator-managed, and credentialed by CNPG itself — the last POC sin is fixed and no human authored the database password. Stable has accumulated a real pile of manifests in the process: a Deployment, a Service, a ConfigMap, an Ingress, a `Cluster`. The final segment organizes that pile with a Kustomize base, then recaps everything the stage delivered.
+Postgres is now durable, operator-managed, and credentialed by CNPG itself — the last POC sin is fixed and no human authored the database password. Stable has accumulated a real pile of manifests in the process: a Deployment, a Service, a ConfigMap, a `Gateway`, an `HTTPRoute`, a `Cluster`. The final segment organizes that pile with a Kustomize base, then recaps everything the stage delivered.
 
 ---
 
@@ -1128,7 +1157,7 @@ Tame the dozen manifests Stable has accumulated — a dozen *resources*, the Kub
 - **A Kustomize base collects manifests into one applyable unit.** A `kustomization.yaml` lists the resource files that make up the application. `kubectl apply -k k8s/base` applies them together. Instead of remembering which files to apply in which order, you apply the directory.
 - **No new behavior — this is organization.** Nothing about the running app changes. The value is operational: one place that names every manifest in the app, applied as a set, so the growing pile stays manageable. This is a real Stable-stage pain — a dozen loose YAML files is hard to keep straight — and the base is the fix.
 - **Kustomize is built into `kubectl`.** `apply -k` is native; no extra tool to install. That is part of why the workshop chose Kustomize over Helm for manifest management.
-- **Base only — overlays come later.** A *base* is the shared definition. *Overlays* patch a base with environment-specific differences (storage class, ingress class, replica count) and are a Production-stage topic, built on top of this base. We do not preview them here; today is just the base.
+- **Base only — overlays come later.** A *base* is the shared definition. *Overlays* patch a base with environment-specific differences (storage class, gateway class, replica count) and are a Production-stage topic, built on top of this base. We do not preview them here; today is just the base.
 
 ### Live build
 
@@ -1136,7 +1165,7 @@ Collect the loose manifests into a base directory, then write the `kustomization
 
 ```bash
 mkdir -p k8s/base
-git mv deployment.yaml service.yaml configmap.yaml ingress.yaml postgres-cluster.yaml k8s/base/
+git mv deployment.yaml service.yaml configmap.yaml gateway.yaml httproute.yaml postgres-cluster.yaml k8s/base/
 cat > k8s/base/kustomization.yaml <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1145,7 +1174,8 @@ resources:
   - deployment.yaml
   - service.yaml
   - configmap.yaml
-  - ingress.yaml
+  - gateway.yaml
+  - httproute.yaml
   - postgres-cluster.yaml
 EOF
 ```
@@ -1181,7 +1211,8 @@ kubectl apply -k k8s/base
 configmap/db-config unchanged
 service/sample-app unchanged
 deployment.apps/sample-app unchanged
-ingress.networking.k8s.io/sample-app unchanged
+gateway.gateway.networking.k8s.io/sample-app unchanged
+httproute.gateway.networking.k8s.io/sample-app unchanged
 cluster.postgresql.cnpg.io/postgres unchanged
 ```
 
@@ -1205,7 +1236,7 @@ git commit -m "Organize Stable manifests with a Kustomize base"
 
 ### Transition
 
-Stable's manifests are now one organized, version-controlled base at `k8s/base/`, applyable in a single command. That closes the Stable stage — the app has gone from the morning's imperative pile to a declarative, durable, ingress-fronted application in git. Day 2's Production stage builds on this exact base, starting with the `overlays/kind` and `overlays/eks` environment overlays (segment 27) that patch it for a real cloud cluster.
+Stable's manifests are now one organized, version-controlled base at `k8s/base/`, applyable in a single command. That closes the Stable stage — the app has gone from the morning's imperative pile to a declarative, durable, gateway-fronted application in git. Day 2's Production stage builds on this exact base, starting with the `overlays/kind` and `overlays/eks` environment overlays (segment 27) that patch it for a real cloud cluster.
 
 ### Recap — end of Stable
 
@@ -1214,7 +1245,7 @@ Stable took the deliberately-wrong POC and fixed every sin on the list. Name eac
 - **It is declarative and in git.** Every resource is a manifest, applied with `kubectl apply`, organized as a Kustomize base, and committed. The desired state is written down, reviewable, and recreatable — the first POC sin, fixed.
 - **It is probed.** Readiness, liveness, and startup probes mean Kubernetes can tell a healthy Pod from a wedged one and restarts the wedged ones.
 - **It is resource-bounded.** Requests and limits mean the scheduler places the Pod correctly and no runaway container starves the node.
-- **It is ingress-fronted.** A real `Ingress` resource, fulfilled by `ingress-nginx`, replaced the crude NodePort — and it is portable to a different controller on a different cluster.
+- **It has a real front door.** A `Gateway` and an `HTTPRoute`, fulfilled by NGINX Gateway Fabric, replaced the crude NodePort — the route is a contract, the controller is environment-specific, and the same route is portable to a different controller on a different cluster.
 - **It is durably Postgres-backed.** A CloudNativePG `Cluster` replaced the ephemeral Deployment; the data survives a Pod restart, and CNPG owns the credentials so no human authored the database password.
 
 What is still wrong — every item is a Production segment:
@@ -1231,9 +1262,9 @@ That is Stable: the state you would hand a teammate. Production is the state you
 
 That first Recap line — *it runs on exactly one local cluster* — is the hook for one last mental picture before Day 2. Do not build anything here. This is a talk-over-diagram, four to six minutes, and then we close the day.
 
-- **A Kubernetes cluster is a LEGO build.** The bricks are the component blocks you have met all stage — control plane, worker nodes, networking, storage, ingress, DNS, secrets, autoscaling, and your app. A cluster is those bricks snapped onto one baseplate. *Say it out loud: "You already own the brick set. The only question is which build you snap them into."*
+- **A Kubernetes cluster is a LEGO build.** The bricks are the component blocks you have met all stage — control plane, worker nodes, networking, storage, gateway, DNS, secrets, autoscaling, and your app. A cluster is those bricks snapped onto one baseplate. *Say it out loud: "You already own the brick set. The only question is which build you snap them into."*
 - **The same brick set builds three very different clusters.** An edge device, a self-hosted cluster, and a managed cloud cluster are the same nine bricks on the same baseplate — but some bricks are swapped for a differently-shaped one that does the same job, and one brick is missing entirely. *Say it out loud: "Same resources, same app. What changes underneath is the controller, not the contract."*
-- **This is the contract-versus-controller theme, assembled.** All stage you met it one resource at a time — an `Ingress` is a contract, `ingress-nginx` is the controller fulfilling it. The three builds are that same idea for a whole cluster at once.
+- **This is the contract-versus-controller theme, assembled.** All stage you met it one resource at a time — a `Gateway` plus an `HTTPRoute` is a contract, NGINX Gateway Fabric is the controller fulfilling it. The three builds are that same idea for a whole cluster at once.
 
 **The three builds.** Define each crisply before walking the matrix:
 
@@ -1257,7 +1288,7 @@ The matrix — nine blocks down, three builds across:
 | 2 | **Worker nodes / compute** | **D** — one or a few nodes, often the same box as the control plane; ARM common | **D** — discrete machines or VMs you provision and join | **D** — real EC2 worker nodes provisioned via an `eksctl`-managed node group (PRODUCTION Seg 24) |
 | 3 | **Container networking (CNI)** *(the runtime is containerd in all three; the CNI is what varies)* | **D** — a lightweight bundled CNI for footprint (e.g. flannel) | **D** — you choose and install it (Calico / Cilium) — "you must choose" is the point | **D** — the AWS VPC CNI; Pods get real VPC IP addresses |
 | 4 | **Storage (CSI / PVC)** | **D** — local-path provisioner (`standard` StorageClass), ephemeral, wiped on restart — *this is exactly what your `kind` cluster has* | **D** — a storage system you run yourself (Ceph / Longhorn / NFS) | **D** — the EBS CSI driver with a `gp3` StorageClass: dynamic, durable block volumes — no EFS (PRODUCTION Seg 25) |
-| 5 | **Ingress + load balancer** | **D** — `ingress-nginx` reached via host port-mapping; **no real external load balancer** (on `kind`, the `Ingress` ADDRESS shows `localhost`) — *this is exactly what your `kind` cluster has* | **D** — ingress-nginx / Traefik plus a self-managed LB (MetalLB) to stand in for a cloud LB | **D** — the AWS Load Balancer Controller provisions a real ALB that fulfills the **same** `Ingress` resource (PRODUCTION Seg 26) |
+| 5 | **Gateway + load balancer** | **D** — NGINX Gateway Fabric reached via host port-mapping; **no real external load balancer** (on `kind`, the `Gateway` ADDRESS shows `localhost`) — *this is exactly what your `kind` cluster has* | **D** — a Gateway API implementation (NGINX Gateway Fabric / Envoy Gateway) plus a self-managed LB (MetalLB) to stand in for a cloud LB | **D** — the AWS Load Balancer Controller provisions a real ALB that fulfills the **same** `Gateway` and `HTTPRoute` (PRODUCTION Seg 26) |
 | 6 | **DNS (CoreDNS)** | **P** — CoreDNS | **P** — CoreDNS | **P** — CoreDNS *(anchor brick — in-cluster service discovery is CoreDNS in all three; cloud DNS for external names is additionally available but the workshop does not wire it)* |
 | 7 | **Secrets / credentials** *(the Secret object is the same brick everywhere; the lock behind it differs)* | **D** — Secret object present; encryption-at-rest often off by default | **D** — Secret object present; you wire etcd encryption / KMS yourself | **D** — Secret object present; EKS envelope-encrypts Secrets at rest by default on 1.28+ (AWS-owned KMS key; customer key is opt-in); SealedSecrets sealed per-cluster (PRODUCTION Seg 23) |
 | 8 | **Autoscaling (pod-level HPA)** | **A** — no metrics-server by default, so no HPA — *this is where your `kind` cluster starts* | **D** — HPA works *if* you install metrics-server | **P** — HPA backed by metrics-server, exactly as the workshop teaches it (PRODUCTION Seg 17); node autoscaling (Cluster Autoscaler / Karpenter) is never taught — out of scope |
@@ -1267,7 +1298,7 @@ The matrix — nine blocks down, three builds across:
 
 Do not read the matrix cell by cell. Point at it, then talk these five points — the cells are reference for later.
 
-- **Your `kind` cluster lives near the EDGE / local end of this picture — not the cloud end.** What students built in Stable is a non-HA control plane (a single control-plane node, plus two workers), local-path `standard` storage, `ingress-nginx` with no real external load balancer, and no autoscaling. Read down the edge column and you are largely reading your own cluster. *Say it out loud so nobody mistakes `kind` for the cloud build: "The cluster on your laptop is the left-hand column. Day 2 is the journey to the right-hand one."*
+- **Your `kind` cluster lives near the EDGE / local end of this picture — not the cloud end.** What students built in Stable is a non-HA control plane (a single control-plane node, plus two workers), local-path `standard` storage, NGINX Gateway Fabric with no real external load balancer, and no autoscaling. Read down the edge column and you are largely reading your own cluster. *Say it out loud so nobody mistakes `kind` for the cloud build: "The cluster on your laptop is the left-hand column. Day 2 is the journey to the right-hand one."*
 - **The two all-P rows (6 and 9) are your anchors** — point them out first so the variation below them reads as variation around a stable core. If a reader feels lost in the variation, the anchors are the "you are here."
 - **Rows 3, 4, 5, 7 are all-D and that is the whole lesson** — same resource, three different controllers. Each cell names the concrete controller on purpose; do not abstract them away. An all-D row is not inconsistency — it is the contract-versus-controller theme made literal.
 - **Row 8 is the "absence" row** — and a tie-in: the workshop's own `kind` cluster *starts* at "A" for the HPA and only *earns* "P" in PRODUCTION Segment 17, where you install metrics-server because `kind` ships none. The matrix's edge column is where every student's cluster began this morning.
@@ -1279,15 +1310,15 @@ Do not read the matrix cell by cell. Point at it, then talk these five points �
 
 **The three builds, drawn.** Each illustration is the same nine-slot baseplate with the same brick positions; only the brick in each slot changes. The captions stand on their own if the images are not yet rendered.
 
-![Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, ingress, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/lego-edge-cluster.png)
+![Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, gateway, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/lego-edge-cluster.png)
 
 *Edge build: the same app on the smallest possible cluster — and the closest match to the `kind` cluster on your laptop. The control plane and nodes collapse toward one box, storage is ephemeral, and there is no HPA brick at all (no metrics-server to feed it).*
 
-![Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, ingress, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-selfhosted-cluster.png)
+![Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, gateway, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-selfhosted-cluster.png)
 
 *Self-hosted build: the vanilla, you-own-everything cluster. Every controller behind a resource is one you installed yourself — control plane, nodes, networking, storage, and the rest are all a different form from the edge and cloud builds.*
 
-![Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, ingress, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-cloud-cluster.png)
+![Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, gateway, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-cloud-cluster.png)
 
 *Cloud build (EKS): the control plane becomes a sealed brick you never open, and the HPA — pod-level autoscaling — is finally a solid brick. This is the only one of the three the workshop actually builds, on Day 2.*
 

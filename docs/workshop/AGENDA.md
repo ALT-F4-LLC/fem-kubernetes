@@ -22,7 +22,7 @@ _Warning: high intensity learning environment._
 | 12:45PM | From Imperative to Declarative |
 | 1:30PM | Health Checks & Resource Management |
 | 2:00PM | ConfigMaps, Secrets & Namespaces |
-| 2:30PM | Ingress |
+| 2:30PM | Gateway API |
 | 3:00PM | Operators & CRDs |
 | 3:30PM | Durable Postgres with CloudNativePG |
 | 4:00PM | Organizing Manifests with Kustomize |

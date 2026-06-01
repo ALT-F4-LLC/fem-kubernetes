@@ -14,7 +14,7 @@ status: "draft"
 This is the master spine for a **two-day**, 32-segment Frontend Masters workshop. The workshop teaches Kubernetes by progressively deploying and maturing a single small application — a Node/TypeScript HTTP API backed by Postgres — through three maturity stages, all built live:
 
 - **POC** (segments 4-6): the app and an ephemeral Postgres deployed to a local `kind` cluster with imperative `kubectl` commands. NodePort access, no probes, no resource limits, nothing in git, database data dies on pod restart. The deliberately-wrong "before" picture.
-- **Stable** (segments 8-14): declarative manifests in git. Health probes, resource requests/limits, ConfigMaps and Secrets, namespaces, an Ingress, the CloudNativePG operator giving Postgres durable PVC-backed storage, and Kustomize bases organizing the manifests. The state you would hand to a teammate.
+- **Stable** (segments 8-14): declarative manifests in git. Health probes, resource requests/limits, ConfigMaps and Secrets, namespaces, a `Gateway` and `HTTPRoute`, the CloudNativePG operator giving Postgres durable PVC-backed storage, and Kustomize bases organizing the manifests. The state you would hand to a teammate.
 - **Production** (segments 17-31): autoscaling, safe rollouts, PodDisruptionBudgets, RBAC least-privilege, GitOps with Argo CD, git-safe secrets with Sealed Secrets, and a minimal Amazon EKS capstone where the same app runs in the cloud. The state you would hand to an on-call rotation.
 
 Two segments are **Foundations** (2-3): they build the cluster and the mental model before the maturity progression can begin. Six segments are **interludes** (no stage): Introduction (1), Lunch (7, 22), Day 1 Close (15), Day 2 Kickoff (16), Wrap-Up (32).
@@ -85,11 +85,11 @@ The prior CI/CD workshop tagged every non-interlude segment to a maturity stage 
 
 ### Kustomize bases in Stable, overlays in Production (TDD §8)
 
-Kustomize is introduced twice. Segment 14 introduces **bases** — a `kustomization.yaml` over the growing pile of Stable manifests, because organizing a dozen manifests is a real Stable-stage pain. Segment 27 introduces **overlays** — a `kind` overlay and an `eks` overlay over the shared base — because a real cloud cluster needs different values (storage class, ingress class, replica count) than `kind` did. Overlays express that difference; they are not a mechanism for operating two clusters at once. Splitting the introduction keeps each half motivated by a concrete need.
+Kustomize is introduced twice. Segment 14 introduces **bases** — a `kustomization.yaml` over the growing pile of Stable manifests, because organizing a dozen manifests is a real Stable-stage pain. Segment 27 introduces **overlays** — a `kind` overlay and an `eks` overlay over the shared base — because a real cloud cluster needs different values (storage class, gateway class, replica count) than `kind` did. Overlays express that difference; they are not a mechanism for operating two clusters at once. Splitting the introduction keeps each half motivated by a concrete need.
 
-### Two ingress controllers on purpose (TDD §6.3)
+### Two Gateway controllers on purpose (TDD §6.3)
 
-`kind` runs `ingress-nginx` (segment 11); EKS runs the AWS Load Balancer Controller fronting an ALB (segment 26). The workshop deliberately uses two controllers so students see that an `Ingress` resource is a stable contract while the controller behind it is environment-specific. This is the same lesson the storage segments teach with the local-path provisioner versus the EBS CSI driver.
+`kind` runs NGINX Gateway Fabric (segment 11); EKS runs the AWS Load Balancer Controller fronting an ALB (segment 26). The workshop deliberately uses two controllers, selected per environment by the `GatewayClass` a `Gateway` points at, so students see that a `Gateway` plus an `HTTPRoute` is a stable contract while the controller behind it is environment-specific. This is the same lesson the storage segments teach with the local-path provisioner versus the EBS CSI driver.
 
 ### Day 1 closes with a recap interlude (two-day adaptation)
 
@@ -103,8 +103,8 @@ Each stage's completed reference solution lives on a corresponding branch in thi
 | --- | --- |
 | `workshop` | Sample app source + `Dockerfile` only. No Kubernetes manifests. The student starting point. |
 | `poc` | `workshop` content + the `kind` cluster config + a `k8s/poc/` folder holding the manifests equivalent to the imperative `kubectl` commands run live in segments 4-6. |
-| `stable` | `poc` content + declarative `k8s/base/` (Deployment, Service, Ingress, probes, ConfigMap, Secret, namespace) + the CloudNativePG operator install + a Postgres `Cluster` manifest + `kustomization.yaml`. |
-| `production` | `stable` content + HPA + rollout strategy + PodDisruptionBudget + RBAC manifests + the Sealed Secrets controller install + `SealedSecret` manifests (one per overlay) + Argo CD `Application` manifests + Kustomize overlays (`overlays/kind`, `overlays/eks`) + the `eksctl` cluster config + a gp3 StorageClass + the AWS Load Balancer Controller `Ingress`. |
+| `stable` | `poc` content + declarative `k8s/base/` (Deployment, Service, `Gateway`, `HTTPRoute`, probes, ConfigMap, Secret, namespace) + the CloudNativePG operator install + a Postgres `Cluster` manifest + `kustomization.yaml`. |
+| `production` | `stable` content + HPA + rollout strategy + PodDisruptionBudget + RBAC manifests + the Sealed Secrets controller install + `SealedSecret` manifests (one per overlay) + Argo CD `Application` manifests + Kustomize overlays (`overlays/kind`, `overlays/eks`) + the `eksctl` cluster config + a gp3 StorageClass + the AWS Load Balancer Controller `GatewayClass` + the ALB `Gateway`/`HTTPRoute`. |
 
 The branches are linearly related: `poc` is branched from `workshop`, `stable` from `poc`, `production` from `stable`. As a result, `git diff poc..stable` shows the diff Stable adds on top of POC, and `git diff stable..production` shows the diff Production adds on top of Stable.
 
@@ -162,13 +162,16 @@ The instructor verifies every item below before each day starts. The recommended
 ### Local cluster (kind)
 
 - [ ] `kind create cluster` succeeds with the multi-node config file (one control-plane node, two workers); `kubectl get nodes` shows all three `Ready`.
-- [ ] The `ingress-nginx` install recipe for `kind` is verified end-to-end against a throwaway Service.
+- [ ] The NGINX Gateway Fabric NodePort install (Gateway API standard-channel CRDs, NGF CRDs, the NodePort controller variant) is verified end-to-end on `kind` against a throwaway Service, with the version refs pinned.
 - [ ] `metrics-server` installs cleanly on `kind` (the autoscaling demo, segment 17, depends on it).
 
 ### AWS / EKS (Day 2)
 
 - [ ] `eksctl` is installed and version-pinned (`eksctl version`).
 - [ ] The minimal `eksctl` cluster config is prepared: a managed nodegroup, a small instance type, two nodes. No add-ons beyond what segments 25-26 install live.
+- [ ] The AWS Load Balancer Controller is pinned to **v3.0.0 or later** (where Gateway API → ALB went GA), and its real `v3_X_Y_full.yaml` filename is resolved — the `latest` placeholder 404s on literal paste (segment 26).
+- [ ] `cert-manager` is version-pinned and verified to install via `kubectl apply` on a scratch cluster — the LBC v3 manifest install depends on it.
+- [ ] The LBC Gateway API CRDs ref is pinned, and the Gateway API standard-channel CRDs install cleanly on EKS (segment 26 applies them before the controller).
 - [ ] The teardown command is prepared and has been tested end-to-end on a scratch cluster (`eksctl delete cluster`), including the post-delete check for orphaned EBS volumes and load balancers.
 - [ ] Cost expectation is written into the student-facing prerequisites: the EKS control plane, nodes, EBS volumes, and load balancer bill by the hour, and segment 30's teardown is mandatory.
 
@@ -279,14 +282,14 @@ flowchart LR
         L1["Head chef<br/>Control plane<br/>on your laptop"]:::found
         L2["Cook stations<br/>Worker nodes<br/>containers on one machine<br/>(1 control-plane + 2 workers)"]:::found
         L3["Walk-in fridge<br/>Storage / volumes<br/>local-path — wiped on restart"]:::found
-        L4["Maitre d<br/>Ingress / front door<br/>NodePort / ingress-nginx side door"]:::found
+        L4["Maitre d<br/>Gateway + HTTPRoute / front door<br/>NGINX Gateway Fabric — NodePort on a laptop"]:::found
     end
     subgraph CLOUD["A cloud cluster (EKS) — Day 2"]
         direction TB
         R1["Head chef<br/>Control plane<br/>managed, always-on (highly available)<br/>Day 2 — you'll build this"]:::production
         R2["Cook stations<br/>Worker nodes<br/>real separate machines<br/>Day 2 — you'll build this"]:::production
         R3["Walk-in fridge<br/>Storage / volumes<br/>durable — survives restarts<br/>Day 2 — you'll build this"]:::production
-        R4["Maitre d<br/>Ingress / front door<br/>real load balancer / front entrance<br/>Day 2 — you'll build this"]:::production
+        R4["Maitre d<br/>Gateway + HTTPRoute / front door<br/>real load balancer / front entrance<br/>Day 2 — you'll build this"]:::production
     end
     L1 -.-> R1
     L2 -.-> R2
@@ -297,7 +300,7 @@ flowchart LR
     classDef production fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
 ```
 
-The storage and ingress rows are where the workshop's recurring theme first bites: the Kubernetes resource — a `PersistentVolumeClaim`, an `Ingress` — is a stable contract that stays the same across both columns, while the controller that satisfies it is environment-specific. On `kind` a local-path provisioner and `ingress-nginx` back those resources; on EKS a cloud provisioner and load balancer do. Students will not write either yet; the point is that the same declaration they make today keeps working when the controller behind it changes in Day 2.
+The storage and networking rows are where the workshop's recurring theme first bites: the Kubernetes resource — a `PersistentVolumeClaim`, or a `Gateway` plus an `HTTPRoute` — is a stable contract that stays the same across both columns, while the controller that satisfies it is environment-specific. On `kind` a local-path provisioner and NGINX Gateway Fabric back those resources; on EKS a cloud provisioner and the AWS Load Balancer Controller do. Students will not write either yet; the point is that the same declaration they make today keeps working when the controller behind it changes in Day 2.
 
 **Time-budget warning:** 30 minutes covers install plus first-cluster exploration. If a student's container runtime is misconfigured, do not debug it on stage — point them at the pre-flight checklist and the `poc` branch and move on.
 
@@ -363,11 +366,11 @@ Configuration moves out of inline environment variables. The database connection
 
 ---
 
-### Segment 11 — 2:30 — Ingress
+### Segment 11 — 2:30 — Gateway API
 
 **Stage:** Stable.
 
-The `NodePort` from POC is replaced. The instructor installs the `ingress-nginx` controller on `kind`, then writes an `Ingress` resource with host and path routing to the app's Service. The talking point separates the `Ingress` resource (a stable contract) from the controller that fulfills it (environment-specific) — a distinction segment 26 pays off on EKS.
+The `NodePort` from POC is replaced. The instructor installs NGINX Gateway Fabric on `kind`, then writes a `Gateway` (a listener) and an `HTTPRoute` (host and path routing to the app's Service). The talking point separates the route — a `Gateway` plus an `HTTPRoute`, a stable contract — from the controller that fulfills it (environment-specific, named by the `GatewayClass` the `Gateway` points at) — a distinction segment 26 pays off on EKS.
 
 ---
 
@@ -395,7 +398,7 @@ A required talking point (per design choices above): the instructor explains tha
 
 Stable has accumulated a dozen manifests. The instructor introduces a Kustomize **base**: a `kustomization.yaml` collecting the manifests, applied with `kubectl apply -k`. No new behavior — this is housekeeping that segment 27's overlays will build on.
 
-The end-of-Stable recap closes the stage: the app is declarative, probed, resource-bounded, ingress-fronted, and durably backed by Postgres. The instructor names what is still wrong: it runs on exactly one local cluster, scaling is manual, a bad deploy takes the app down with no rollback discipline, the workload runs under an over-permissioned default ServiceAccount, and there is no story for surviving a node going away. Production will solve all of it.
+The end-of-Stable recap closes the stage: the app is declarative, probed, resource-bounded, gateway-fronted, and durably backed by Postgres. The instructor names what is still wrong: it runs on exactly one local cluster, scaling is manual, a bad deploy takes the app down with no rollback discipline, the workload runs under an over-permissioned default ServiceAccount, and there is no story for surviving a node going away. Production will solve all of it.
 
 **Time-budget warning:** Segment 14 is 15 minutes. Keep the Kustomize introduction to "base only." Overlays are segment 27 — do not preview them here.
 
@@ -501,7 +504,7 @@ The `kind` local-path provisioner does not exist on EKS. The instructor enables 
 
 **Stage:** Production.
 
-The EKS counterpart to segment 11. The instructor installs the AWS Load Balancer Controller; the same `Ingress` resource now provisions a real ALB instead of routing through `ingress-nginx`. This is the payoff of the "the resource is a contract, the controller is environmental" framing from Day 1.
+The EKS counterpart to segment 11. The instructor installs the AWS Load Balancer Controller; the same `Gateway` and `HTTPRoute` now provision a real ALB instead of being fulfilled by NGINX Gateway Fabric, selected by a different `GatewayClass`. This is the payoff of the "the route is a contract, the controller is environmental" framing from Day 1.
 
 ---
 
@@ -509,7 +512,7 @@ The EKS counterpart to segment 11. The instructor installs the AWS Load Balancer
 
 **Stage:** Production.
 
-EKS needs different values than `kind` did: a different storage class, a different ingress class, a different replica count. Instead of editing the manifests, the instructor adds an `eks` overlay over the segment-14 base — a small set of patches — and pairs it with a `kind` overlay recording the values `kind` used. The base is untouched. The framing is "a real cloud cluster needs different values, and an overlay is how Kustomize expresses that difference" — not two environments operated side by side.
+EKS needs different values than `kind` did: a different storage class, a different gateway class, a different replica count. Instead of editing the manifests, the instructor adds an `eks` overlay over the segment-14 base — a small set of patches — and pairs it with a `kind` overlay recording the values `kind` used. The base is untouched. The framing is "a real cloud cluster needs different values, and an overlay is how Kustomize expresses that difference" — not two environments operated side by side.
 
 ---
 

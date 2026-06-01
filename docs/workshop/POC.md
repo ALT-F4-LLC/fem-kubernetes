@@ -320,7 +320,7 @@ Give the two Deployments stable addresses so they form a working stack, and reac
 
 - **The problem Services solve:** a Pod's IP is ephemeral and changes on every reschedule. A Service is a stable virtual IP and DNS name in front of a set of Pods (selected by label) — the address stays put while the Pods behind it churn.
 - **`ClusterIP`** is the default: reachable only from inside the cluster. Perfect for Postgres, which only the app needs to talk to. The app connects to it by the Service's DNS name (`postgres`), not by any Pod IP.
-- **`NodePort`** opens a port on every node so something outside the cluster can reach the Service. We use it for the app because it is the most direct way to hit the app from the host on `kind` — and, like everything in POC, it is the crude option we will replace later (an Ingress, in Stable).
+- **`NodePort`** opens a port on every node so something outside the cluster can reach the Service. We use it for the app because it is the most direct way to hit the app from the host on `kind` — and, like everything in POC, it is the crude option we will replace later (with a real front door — a `Gateway` — in Stable).
 - **The secret is wrong — say it out loud.** When we wire the app to Postgres we pass the database password as a plaintext literal on the `kubectl` command line. State it plainly: *"This password is now in my shell history and on this recording forever. This is exactly how you should not handle a secret."* And it is worse than the terminal: once it is set on the Deployment, anyone with cluster access can read it back with `kubectl get deployment sample-app -o yaml` — the plaintext lives in the Deployment object itself, so a private terminal does not make it safe. The value (`demo-not-a-real-password`) is deliberately fake precisely because the screenshare is permanent. This is the first beat of the secrets thread that Stable and Production pay off.
 
 ### Live build
@@ -450,7 +450,7 @@ The full application is running on the cluster: app and database, wired together
 We have a working deployment — and a catalogue of problems we built in on purpose. Name each one; each is something Stable will solve:
 
 - **Nothing is in git.** Every resource exists only because of a command someone typed. There is no record of the desired state, no way to review a change, no way to recreate this from scratch except by retyping the whole morning. Stable rewrites all of it as declarative manifests committed to git.
-- **NodePort access.** The app is reachable only through a raw node port (or a manual port-forward) — crude and not how you expose a real app. Stable replaces it with an Ingress.
+- **NodePort access.** The app is reachable only through a raw node port (or a manual port-forward) — crude and not how you expose a real app. Stable replaces it with a real front door — a `Gateway` and an `HTTPRoute`.
 - **No health probes.** Kubernetes has no way to tell a healthy Pod from a wedged one; a hung app keeps receiving traffic. Stable adds readiness, liveness, and startup probes.
 - **No resource limits.** Nothing bounds what these Pods can consume; one runaway container can starve the node. Stable adds resource requests and limits.
 - **The database is ephemeral.** We just watched the data vanish on a pod restart, because Postgres has no volume. Stable gives it durable, PVC-backed storage via the CloudNativePG operator.

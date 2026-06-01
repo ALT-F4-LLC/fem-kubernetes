@@ -7,7 +7,7 @@ This is the **Production** stage of the workshop — OUTLINE segments 17-21 (Day
 - **End state:** the state you'd hand an on-call rotation — autoscaled, safely deployable, drain-resilient, least-privileged, GitOps-driven, git-safe on secrets — running on EKS.
 - **Next:** this is the capstone — nothing is deferred to a later stage; the mandatory teardown closes Day 2 cleanly.
 
-**How to read this guide.** Each segment below follows the same fixed section order — `Goal`, `Talking points`, `Live build`, `Watch for`, an optional `Anticipated questions`, then `Transition` — so your eye lands in the same place every time. The fenced command blocks are exactly what you type on stage; one logical step per block, with prose between blocks narrating the build. Output blocks are **representative, not literal captures** — pod-name suffixes, ages, IPs, AWS ARNs, and EKS endpoint hostnames are illustrative and will differ on the day; read them for the shape and the teaching signal, never as the exact bytes you'll see. Every secret value shown anywhere is a deliberately-fake demo value. The install-manifest URLs that point at `stable`/`latest` (metrics-server, Argo CD, Sealed Secrets) are **illustrative** — on stage you apply the specific version you pinned in the pre-flight checklist, not the moving `stable`/`latest` target (these three resolve as-is). The AWS Load Balancer Controller URL goes further: its `latest/download/v2_x_x_full.yaml` filename is itself a placeholder that does **not** resolve — a literal paste 404s — so it must be replaced with the pinned version filename (see segment 26).
+**How to read this guide.** Each segment below follows the same fixed section order — `Goal`, `Talking points`, `Live build`, `Watch for`, an optional `Anticipated questions`, then `Transition` — so your eye lands in the same place every time. The fenced command blocks are exactly what you type on stage; one logical step per block, with prose between blocks narrating the build. Output blocks are **representative, not literal captures** — pod-name suffixes, ages, IPs, AWS ARNs, and EKS endpoint hostnames are illustrative and will differ on the day; read them for the shape and the teaching signal, never as the exact bytes you'll see. Every secret value shown anywhere is a deliberately-fake demo value. The install-manifest URLs that point at `stable`/`latest` (metrics-server, Argo CD, Sealed Secrets) are **illustrative** — on stage you apply the specific version you pinned in the pre-flight checklist, not the moving `stable`/`latest` target (these three resolve as-is). The AWS Load Balancer Controller URL goes further: its `latest/download/v3_X_Y_full.yaml` filename is itself a placeholder that does **not** resolve — a literal paste 404s — so it must be replaced with the pinned version filename (see segment 26).
 
 > **Scope guard — keep these in mind on stage.**
 >
@@ -760,7 +760,7 @@ Kubernetes control plane is running at https://XXXXXXXX.gr7.<region>.eks.amazona
 CoreDNS is running at https://XXXXXXXX.gr7.<region>.eks.amazonaws.com/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
 ```
 
-Name the gaps out loud — what EKS does *not* yet have that `kind` did. There is no local-path provisioner, no `ingress-nginx`, and no Sealed Secrets controller here. Show that the default StorageClass story is different by listing what exists:
+Name the gaps out loud — what EKS does *not* yet have that `kind` did. There is no local-path provisioner, no NGINX Gateway Fabric or any other Gateway controller, and no Sealed Secrets controller here. Show that the default StorageClass story is different by listing what exists:
 
 ```bash
 kubectl get storageclass
@@ -896,7 +896,7 @@ The manifest was portable; only the storage class behind it changed. Note the vo
 
 ### Transition
 
-The database now has durable cloud storage. The other thing `kind` had that EKS does not is a way into the cluster from outside — `kind` ran `ingress-nginx`, and EKS has no ingress controller yet. Segment 26 installs the AWS Load Balancer Controller so the same `Ingress` resource provisions a real ALB.
+The database now has durable cloud storage. The other thing `kind` had that EKS does not is a way into the cluster from outside — `kind` ran NGINX Gateway Fabric, and EKS has no Gateway controller yet. Segment 26 installs the AWS Load Balancer Controller so the same `Gateway` and `HTTPRoute` provision a real ALB.
 
 ---
 
@@ -907,14 +907,14 @@ The database now has durable cloud storage. The other thing `kind` had that EKS 
 
 ### Goal
 
-Give EKS a front door the cloud way. On `kind` the `Ingress` resource was fulfilled by `ingress-nginx`; on EKS you install the AWS Load Balancer Controller, and the **same** `Ingress` resource now provisions a real Application Load Balancer instead. This is the direct payoff of the "the resource is a contract, the controller is environment-specific" framing from Day 1: the `Ingress` YAML is unchanged, but a different controller fulfills it with cloud-native infrastructure.
+Give EKS a front door the cloud way. On `kind` the `Gateway` and `HTTPRoute` were fulfilled by NGINX Gateway Fabric; on EKS you install the AWS Load Balancer Controller, and the **same** `Gateway` and `HTTPRoute` now provision a real Application Load Balancer instead. This is the direct payoff of the "the route is a contract, the controller is environment-specific" framing from Day 1: the `Gateway` and `HTTPRoute` YAML is unchanged, but a different controller fulfills it with cloud-native infrastructure — selected by a different `GatewayClass`.
 
 ### Talking points
 
-- **The `Ingress` resource is the stable contract; the controller is environmental — exactly like storage.** The same `Ingress` you wrote in Stable (host and path routing to the app's Service) is what we use here. On `kind`, `ingress-nginx` turned it into an in-cluster proxy; on EKS, the AWS Load Balancer Controller turns it into a real ALB. Two controllers on purpose, one contract — the same lesson the EBS CSI driver taught for storage.
-- **The AWS Load Balancer Controller provisions real AWS load balancers from Kubernetes resources.** It watches `Ingress` (and `Service` type `LoadBalancer`) and creates an ALB (or NLB), target groups, and listeners in your AWS account to match. It is the bridge between the Kubernetes networking model and AWS's.
-- **An `IngressClass` selects which controller handles an `Ingress`.** With two possible controllers in the world, the `Ingress` names its class (`alb` here) so the right controller picks it up. On EKS that is the ALB class; the overlay in segment 27 is where that environment-specific class gets set without touching the base.
-- **The ALB lives in your AWS account and bills by the hour** — and, like EBS volumes, can be orphaned if the `Ingress` is deleted incorrectly. This is the second resource segment 30's teardown check looks for.
+- **The `Gateway` and `HTTPRoute` are the stable contract; the controller is environmental — exactly like storage.** The same `Gateway` (a listener) and `HTTPRoute` (host and path routing to the app's Service) you wrote in Stable are what we use here. On `kind`, NGINX Gateway Fabric turned them into an in-cluster proxy; on EKS, the AWS Load Balancer Controller turns them into a real ALB. Two controllers on purpose, one contract — the same lesson the EBS CSI driver taught for storage.
+- **The AWS Load Balancer Controller provisions real AWS load balancers from Kubernetes resources.** It watches `Gateway` and `HTTPRoute` (and `Service` type `LoadBalancer`) and creates an ALB (or NLB), target groups, and listeners in your AWS account to match. It is the bridge between the Kubernetes networking model and AWS's.
+- **A `GatewayClass` selects which controller handles a `Gateway`.** With two possible controllers in the world, the `Gateway` names its class through `gatewayClassName` so the right controller picks it up — the same role `IngressClass` played for the old `Ingress`, but now the controller is named explicitly in the YAML rather than hidden behind a class string. On EKS that class points at the ALB controller (`controllerName: gateway.k8s.aws/alb`); the overlay in segment 27 is where that environment-specific class gets set without touching the base.
+- **The ALB lives in your AWS account and bills by the hour** — and, like EBS volumes, can be orphaned if the `Gateway` is deleted incorrectly. This is the second resource segment 30's teardown check looks for.
 
 ### Live build
 
@@ -934,11 +934,32 @@ eksctl create iamserviceaccount --cluster fem-workshop --region <region> \
 2026-06-03 14:06:55 [ℹ]  created serviceaccount "kube-system/aws-load-balancer-controller"
 ```
 
-Install the controller from its upstream manifest, pointed at the cluster name:
+The v3 Gateway API path has two prerequisites the old v2 Ingress path did not. The controller's manifest webhooks are TLS-served, so it depends on cert-manager; and the Gateway API → ALB feature ships its own CRDs that must be present before the controller starts. Both install via `kubectl apply` — no Helm. Install cert-manager first, then the LBC Gateway API CRDs:
+
+```bash
+kubectl apply --validate=false -f \
+  https://github.com/cert-manager/cert-manager/releases/download/vX.Y.Z/cert-manager.yaml
+kubectl wait --namespace cert-manager \
+  --for=condition=Available deployment --all --timeout=120s
+kubectl apply -f \
+  https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/vX.Y.Z/config/crd/gateway/gateway-crds.yaml
+```
+
+```text
+namespace/cert-manager created
+deployment.apps/cert-manager created
+deployment.apps/cert-manager-webhook created
+...
+customresourcedefinition.apiextensions.k8s.io/loadbalancerconfigurations.gateway.k8s.aws created
+customresourcedefinition.apiextensions.k8s.io/targetgroupconfigurations.gateway.k8s.aws created
+...
+```
+
+Now install the controller from its upstream manifest, pointed at the cluster name:
 
 ```bash
 kubectl apply -f \
-  https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/latest/download/v2_x_x_full.yaml
+  https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/latest/download/v3_X_Y_full.yaml
 kubectl rollout status deployment/aws-load-balancer-controller -n kube-system
 ```
 
@@ -948,47 +969,102 @@ deployment.apps/aws-load-balancer-controller created
 deployment "aws-load-balancer-controller" successfully rolled out
 ```
 
-One caution on that URL: `v2_x_x_full.yaml` is an **illustrative placeholder**, not a real filename — unlike the `latest`/`stable` URLs elsewhere in this guide (which AWS and the projects keep resolving), this one does **not** resolve and a literal copy-paste will 404. Apply the specific version you pinned in the pre-flight checklist, substituting the pinned version using underscores throughout the filename — e.g. `v2_7_2_full.yaml`, not `v2_7.2_full.yaml` (the dotted form also 404s).
+One caution on that URL: `v3_X_Y_full.yaml` is an **illustrative placeholder**, not a real filename — unlike the `latest`/`stable` URLs elsewhere in this guide (which AWS and the projects keep resolving), this one does **not** resolve and a literal copy-paste will 404. Apply the specific version you pinned in the pre-flight checklist, substituting the pinned version using underscores throughout the filename — e.g. `v3_3_0_full.yaml`, not `v3_3.0_full.yaml` (the dotted form also 404s). Pin **v3.0.0 or later** — that is where the AWS Load Balancer Controller declared Gateway API → ALB GA. The cert-manager release and the Gateway-CRD ref above are pinned in pre-flight the same way.
 
-Apply the same `Ingress` contract from Stable, now selecting the `alb` IngressClass so this controller fulfills it. One deliberate difference from the `kind` Ingress in Stable segment 11: that one carried a `host: sample-app.local` rule, and this EKS Ingress drops it and routes **path-only** through the ALB. That is intentional — the ALB fronts the app on its own public DNS name, so `kubectl get ingress` shows `HOSTS *` (a wildcard, matching any host), and this afternoon's `curl` hits the raw ALB DNS name with **no** `-H "Host: ..."` header, unlike the morning's `curl -H "Host: sample-app.local"`. Only the class, the dropped host rule, and a couple of ALB annotations are EKS-specific:
+Before the `Gateway` can point at the ALB controller, that controller needs a `GatewayClass`. Unlike the NGF NodePort manifest on `kind` — which installed its own `nginx` `GatewayClass` for you — the ALB controller leaves the class for you to create, because the ALB's behaviour is configured *through* it. This is the load-bearing shape change from the old `Ingress`: with the old EKS `Ingress` the ALB knobs would have been `alb.ingress.kubernetes.io/*` annotations smeared on the resource; under the v3 Gateway API they are **type-safe CRDs** — a `LoadBalancerConfiguration` (the scheme) and a `TargetGroupConfiguration` (the target type) — that the `GatewayClass` references by `parametersRef`. The ALB config is no longer two opaque annotation strings; it is a real object the API server validates. Frame it as the upgrade it is.
+
+Create the `LoadBalancerConfiguration` (internet-facing scheme) and `TargetGroupConfiguration` (`target-type: ip`), then the `GatewayClass` that points the ALB controller at them:
 
 ```bash
 kubectl apply -f - <<'EOF'
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
 metadata:
-  name: sample-app
+  name: alb-internet-facing
   namespace: <app-namespace>
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
 spec:
-  ingressClassName: alb
-  rules:
-    - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: sample-app
-                port: { number: 8080 }
+  scheme: internet-facing
+---
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: alb-target-ip
+  namespace: <app-namespace>
+spec:
+  targetReference:
+    name: sample-app
+  defaultConfiguration:
+    targetType: ip
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: alb
+spec:
+  controllerName: gateway.k8s.aws/alb
+  parametersRef:
+    group: gateway.k8s.aws
+    kind: LoadBalancerConfiguration
+    name: alb-internet-facing
+    namespace: <app-namespace>
 EOF
 ```
 
 ```text
-ingress.networking.k8s.io/sample-app created
+loadbalancerconfiguration.gateway.k8s.aws/alb-internet-facing created
+targetgroupconfiguration.gateway.k8s.aws/alb-target-ip created
+gatewayclass.gateway.networking.k8s.io/alb created
 ```
 
-Watch the controller provision a real ALB and populate the `Ingress` address with the ALB's DNS name — this takes a minute or two as AWS creates the load balancer:
+Now apply the **same** `Gateway` and `HTTPRoute` contract from Stable, changing only the `gatewayClassName` so this controller fulfills it. One deliberate difference from the `kind` route in Stable segment 11: that `HTTPRoute` carried a `sample-app.local` hostname, and this EKS route drops it and routes **path-only** through the ALB. That is intentional — the ALB fronts the app on its own public DNS name, so this afternoon's `curl` hits the raw ALB DNS name with **no** `-H "Host: ..."` header, unlike the morning's `curl -H "Host: sample-app.local"`. The `gatewayClassName` and the dropped hostname are the only EKS-specific lines — everything the ALB needs beyond that lives in the CRDs the `GatewayClass` already points at, not on the route:
 
 ```bash
-kubectl get ingress sample-app -n <app-namespace>
+kubectl apply -f - <<'EOF'
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: sample-app
+  namespace: <app-namespace>
+spec:
+  gatewayClassName: alb
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sample-app
+  namespace: <app-namespace>
+spec:
+  parentRefs:
+    - name: sample-app
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: sample-app
+          port: 8080
+EOF
 ```
 
 ```text
-NAME         CLASS   HOSTS   ADDRESS                                                       PORTS   AGE
-sample-app   alb     *       k8s-sampleapp-xxxx-1234567890.<region>.elb.amazonaws.com      80      90s
+gateway.gateway.networking.k8s.io/sample-app created
+httproute.gateway.networking.k8s.io/sample-app created
+```
+
+Watch the controller provision a real ALB and populate the `Gateway` address with the ALB's DNS name — this takes a minute or two as AWS creates the load balancer. The `Gateway` reports `PROGRAMMED` once the ALB is wired up, exactly as it did on `kind`:
+
+```bash
+kubectl get gateway sample-app -n <app-namespace>
+```
+
+```text
+NAME         CLASS   ADDRESS                                                       PROGRAMMED   AGE
+sample-app   alb     k8s-sampleapp-xxxx-1234567890.<region>.elb.amazonaws.com      True         90s
 ```
 
 Hit the app through the ALB's public DNS name — traffic now enters through real AWS infrastructure, not a port-forward:
@@ -1001,17 +1077,18 @@ curl http://k8s-sampleapp-xxxx-1234567890.<region>.elb.amazonaws.com/healthz
 ok
 ```
 
-The identical `Ingress` resource that ran behind `ingress-nginx` on `kind` now fronts a production ALB on EKS. Contract unchanged; controller environmental.
+The identical `Gateway` and `HTTPRoute` that ran behind NGINX Gateway Fabric on `kind` now front a production ALB on EKS. Contract unchanged; controller environmental — named explicitly by the `GatewayClass`.
 
 ### Watch for
 
-- **`Ingress` gets no `ADDRESS`** — the controller is not running, lacks IAM permissions, or the `IngressClass`/annotations are wrong. `kubectl describe ingress sample-app -n <app-namespace>` shows the controller's events; a missing-permissions error means the IAM service account did not attach the policy.
-- **ALB provisions but returns 503** — the target group has no healthy targets, usually because `target-type: ip` requires the VPC CNI (which EKS has) and the Service/Pod readiness must pass. Confirm the app Pods are `Ready` and the Service selector matches; the ALB health check follows readiness.
+- **The `Gateway` never goes `PROGRAMMED` (no `ADDRESS`)** — the controller is not running, lacks IAM permissions, the `GatewayClass` `parametersRef` points at a missing `LoadBalancerConfiguration`, or the `gatewayClassName` does not match an installed `GatewayClass`. `kubectl describe gateway sample-app -n <app-namespace>` and `kubectl get gatewayclass alb -o "jsonpath={.status.conditions}"` show the status; a missing-permissions error means the IAM service account did not attach the policy, and an `alb` class that never reaches `Accepted` usually means its `parametersRef` target does not exist.
+- **The `HTTPRoute` is not `Accepted`** — `kubectl get httproute sample-app -n <app-namespace> -o "jsonpath={.status.parents}"` should show `Accepted=True`; if not, its `parentRefs` name does not match the `Gateway` in the same namespace. This is the same condition you watched on `kind`.
+- **ALB provisions but returns 503** — the target group has no healthy targets, usually because `targetType: ip` (set in the `TargetGroupConfiguration`) requires the VPC CNI (which EKS has) and the Service/Pod readiness must pass. Confirm the app Pods are `Ready` and the Service selector matches; the ALB health check follows readiness.
 - **Subnet discovery fails** (`couldn't auto-discover subnets`) — the ALB controller finds subnets by tag. On an `eksctl`-created cluster the subnets are tagged automatically; on the fallback cluster confirm the `kubernetes.io/role/elb` tags exist on the public subnets.
 
 ### Transition
 
-EKS now has durable storage and a real load balancer — but we have been applying EKS-specific values (the gp3 class, the `alb` IngressClass) by hand, on top of manifests that also have to keep working on `kind`. Segment 27 captures that environmental difference properly: a `kind` overlay and an `eks` overlay over the same untouched base.
+EKS now has durable storage and a real load balancer — but we have been applying EKS-specific values (the gp3 class, the `alb` `GatewayClass`) by hand, on top of manifests that also have to keep working on `kind`. Segment 27 captures that environmental difference properly: a `kind` overlay and an `eks` overlay over the same untouched base.
 
 ---
 
@@ -1022,13 +1099,13 @@ EKS now has durable storage and a real load balancer — but we have been applyi
 
 ### Goal
 
-Express the difference between `kind` and EKS without editing the manifests. EKS needs different values than `kind` did — a different storage class, a different ingress class, a different replica count — and the wrong way to handle that is to hand-edit the base. Instead you add an `eks` overlay (a small set of patches) over the segment-14 base, and pair it with a `kind` overlay that records the values `kind` used. The base is untouched. The framing: a real cloud cluster needs different values, and an overlay is how Kustomize expresses that difference — not a mechanism for running two clusters at once.
+Express the difference between `kind` and EKS without editing the manifests. EKS needs different values than `kind` did — a different storage class, a different gateway class, a different replica count — and the wrong way to handle that is to hand-edit the base. Instead you add an `eks` overlay (a small set of patches) over the segment-14 base, and pair it with a `kind` overlay that records the values `kind` used. The base is untouched. The framing: a real cloud cluster needs different values, and an overlay is how Kustomize expresses that difference — not a mechanism for running two clusters at once.
 
 ### Talking points
 
 - **The base from segment 14 stays exactly as it is.** Overlays **patch** the base; they do not rewrite it. Everything common to both environments — the Deployment shape, the Service, the probes, the CNPG `Cluster` — lives in the base unchanged. We are adding two thin overlays beside it, not forking the manifests.
 - **An overlay is a set of patches plus a reference to the base.** Each overlay's `kustomization.yaml` names the base as a resource and lists patches that change only what differs for that environment. `kustomize build overlays/eks` produces the base with the EKS patches applied; `overlays/kind` does the same for `kind`.
-- **What actually differs is small and concrete.** `kind`: local-path storage, `ingress-nginx` class, a low replica count. `eks`: the gp3 StorageClass, the `alb` IngressClass, a higher replica count. Two short patch sets — not two copies of the app. Seeing how little differs is the lesson.
+- **What actually differs is small and concrete.** `kind`: local-path storage, the `nginx` GatewayClass, a low replica count. `eks`: the gp3 StorageClass, the `alb` GatewayClass, a higher replica count. Two short patch sets — not two copies of the app. Seeing how little differs is the lesson.
 - **This is a migration aid, not multi-cluster.** The overlays let the same base run on a real cloud cluster; they do not run both clusters at once. Each overlay is reconciled by *that cluster's own* Argo CD (the `kind` base by segment 21's Argo CD, the `eks` overlay by segment 28's). There is no single Argo CD spanning both.
 
 ### Live build
@@ -1040,11 +1117,11 @@ ls k8s/base
 ```
 
 ```text
-deployment.yaml  service.yaml  ingress.yaml  configmap.yaml
-postgres-cluster.yaml  kustomization.yaml
+deployment.yaml  service.yaml  gateway.yaml  httproute.yaml
+configmap.yaml  postgres-cluster.yaml  kustomization.yaml
 ```
 
-Create the `kind` overlay: it references the base and patches in the values `kind` used — the local-path storage class, the `nginx` ingress class, and a low replica count. Writing the heredoc prints nothing on success — `overlays/kind/kustomization.yaml` is created:
+Create the `kind` overlay: it references the base and patches in the values `kind` used — the local-path storage class, the `nginx` gateway class, and a low replica count. Writing the heredoc prints nothing on success — `overlays/kind/kustomization.yaml` is created:
 
 ```bash
 cat > overlays/kind/kustomization.yaml <<'EOF'
@@ -1053,14 +1130,14 @@ kind: Kustomization
 resources:
   - ../../base
 patches:
-  - path: ingress-class-nginx.yaml
-    target: { kind: Ingress, name: sample-app }
+  - path: gateway-class-nginx.yaml
+    target: { kind: Gateway, name: sample-app }
   - path: replicas-2.yaml
     target: { kind: Deployment, name: sample-app }
 EOF
 ```
 
-Create the `eks` overlay: same base, but patched with the EKS-specific values — the `alb` IngressClass and ALB annotations, the gp3 storage class on the CNPG `Cluster`, and a higher replica count. This too prints nothing on success, writing `overlays/eks/kustomization.yaml`:
+Create the `eks` overlay: same base, but patched with the EKS-specific values — the `alb` GatewayClass (the ALB's behaviour lives in the `LoadBalancerConfiguration` and `TargetGroupConfiguration` CRDs the class references by `parametersRef`, applied in segment 26, not in this patch), the gp3 storage class on the CNPG `Cluster`, and a higher replica count. This too prints nothing on success, writing `overlays/eks/kustomization.yaml`:
 
 ```bash
 cat > overlays/eks/kustomization.yaml <<'EOF'
@@ -1069,8 +1146,8 @@ kind: Kustomization
 resources:
   - ../../base
 patches:
-  - path: ingress-class-alb.yaml
-    target: { kind: Ingress, name: sample-app }
+  - path: gateway-class-alb.yaml
+    target: { kind: Gateway, name: sample-app }
   - path: storageclass-gp3.yaml
     target: { kind: Cluster, name: postgres }
   - path: replicas-4.yaml
@@ -1078,7 +1155,7 @@ patches:
 EOF
 ```
 
-The five patch bodies these overlays reference — `ingress-class-nginx.yaml`, `replicas-2.yaml`, `ingress-class-alb.yaml`, `storageclass-gp3.yaml`, and `replicas-4.yaml` — live in the pre-flight materials alongside each overlay's `kustomization.yaml`; drop them in before building.
+The five patch bodies these overlays reference — `gateway-class-nginx.yaml`, `replicas-2.yaml`, `gateway-class-alb.yaml`, `storageclass-gp3.yaml`, and `replicas-4.yaml` — live in the pre-flight materials alongside each overlay's `kustomization.yaml`; drop them in before building.
 
 Confirm the base is unchanged by building the `eks` overlay and diffing the rendered output against the bare base — the only differences are the patched fields, proving the overlay patches rather than rewrites:
 
@@ -1087,16 +1164,16 @@ diff <(kubectl kustomize k8s/base) <(kubectl kustomize overlays/eks) | head -20
 ```
 
 ```text
-<     ingressClassName: nginx
+<     gatewayClassName: nginx
 ---
->     ingressClassName: alb
+>     gatewayClassName: alb
 <   replicas: 2
 ---
 >   replicas: 4
 >   storageClass: gp3
 ```
 
-A handful of lines differ — the storage class, the ingress class, the replica count — and nothing else. That is the entire environmental delta between `kind` and the cloud, captured as patches over one shared base.
+A handful of lines differ — the gateway class, the storage class, the replica count — and nothing else. That is the entire environmental delta between `kind` and the cloud, captured as patches over one shared base.
 
 ### Watch for
 
@@ -1218,7 +1295,7 @@ The same repository that drove `kind` this morning now drives EKS this afternoon
 
 ### Watch for
 
-- **`Application` syncs the wrong path** — if it points at `k8s/base` instead of `overlays/eks`, the cloud cluster gets the `kind` values (nginx ingress class, low replicas). Confirm `path: overlays/eks` in the `Application`; this is the single most likely cause of "EKS came up with the wrong config."
+- **`Application` syncs the wrong path** — if it points at `k8s/base` instead of `overlays/eks`, the cloud cluster gets the `kind` values (nginx gateway class, low replicas). Confirm `path: overlays/eks` in the `Application`; this is the single most likely cause of "EKS came up with the wrong config."
 - **Sealed secret will not decrypt on EKS** (`no key could decrypt secret`) — the `SealedSecret` was sealed against `kind`'s key, not EKS's. That is the per-cluster-key lesson firing: re-seal against the EKS controller (as above) into the `eks` overlay. A `kind`-sealed copy in the `eks` overlay is the classic mistake.
 - **Accidentally on the `kind` context** — installing Argo CD or sealing "on EKS" while `current-context` is `kind-kind` puts everything on the wrong cluster. The `current-context` check at the top of this segment is the guard; re-run it if anything lands unexpectedly.
 
@@ -1333,7 +1410,7 @@ Tear the EKS cluster down completely — and verify nothing was left behind to k
 
 - **Cleanup is operational discipline, not optional tidying.** An EKS control plane, its nodes, its EBS volumes, and its ALB all bill by the hour, independently. Deleting "the cluster" is necessary but not automatically sufficient — resources created *by* workloads (the gp3 volumes from segment 25, the ALB from segment 26) can outlive a careless delete. The discipline is: delete, then **verify**.
 - **`eksctl delete cluster` tears down what `eksctl` created.** Because the cluster was created from the `eksctl` config, deleting it removes the control plane, node groups, and the CloudFormation stacks `eksctl` owns. It runs for several minutes; you start it and narrate the verification while it works.
-- **Orphans come from resources `eksctl` did not create.** The ALB was created by the AWS Load Balancer Controller, and the EBS volumes by the EBS CSI driver — not directly by `eksctl`. If the `Ingress` and PVCs are not cleaned up before (or as part of) the delete, those AWS resources can be left behind and keep charging. That is exactly what the post-delete check looks for.
+- **Orphans come from resources `eksctl` did not create.** The ALB was created by the AWS Load Balancer Controller — which reconciles the `Gateway` into the ALB and attaches its security groups — and the EBS volumes by the EBS CSI driver, not directly by `eksctl`. The `Gateway` owns the ALB's lifecycle (the `HTTPRoute` is just routing rules layered on top), so if the `Gateway` and the PVCs are not cleaned up before (or as part of) the delete, those AWS resources can be left behind and keep charging. That is exactly what the post-delete check looks for.
 - **"A forgotten cluster is an unbudgeted bill."** Say it plainly. The single most common cloud-workshop regret is a student whose cluster ran for a week after the workshop ended. The verification step is how you guarantee that does not happen to anyone in the room.
 - **Deleting the cluster also destroys the Sealed Secrets controller's private key — fine here, not fine in production.** The controller's key lives in the cluster and is per-cluster, so `eksctl delete cluster` takes it with everything else. That is acceptable here only because the cluster is disposable and each cluster re-seals its own copy from the plaintext. In a real environment you would **back up the controller's private key before deleting** — lose it and every existing `SealedSecret` sealed against it becomes permanently undecryptable, even from a clean restore of the git repo.
 
@@ -1351,7 +1428,7 @@ eksctl delete cluster -f eks-cluster.yaml --region <region>
 2026-06-03 15:51:06 [ℹ]  waiting for CloudFormation stack to be deleted ...
 ```
 
-While that runs, check for orphaned load balancers — there should be none once the controller cleaned up the ALB from the deleted `Ingress`. An empty result is the goal:
+While that runs, check for orphaned load balancers — there should be none once the controller cleaned up the ALB from the deleted `Gateway`. An empty result is the goal:
 
 ```bash
 aws elbv2 describe-load-balancers --region <region> \
@@ -1396,7 +1473,7 @@ The cluster is down, no volumes or load balancers were left behind, and nothing 
 ### Watch for
 
 - **`eksctl delete cluster` errors with a stuck CloudFormation stack** — usually a leftover resource (an ALB or a security group still in use) blocks stack deletion. The orphaned-resource checks above find it; delete the blocker explicitly, then re-run the cluster delete. This is precisely why the verification step exists.
-- **The ALB is orphaned because the `Ingress` was not deleted first** — deleting the cluster does not always clean up the controller-created ALB if the controller is torn down before it processes the `Ingress` removal. If the load-balancer check is non-empty, delete the ALB explicitly with the recovery command above. Mention deleting the `Ingress` before the cluster as the clean path.
+- **The ALB is orphaned because the `Gateway` was not deleted first** — deleting the cluster does not always clean up the controller-created ALB if the controller is torn down before it processes the `Gateway` removal. The `Gateway` owns the ALB, so it is the resource to remove first. If the load-balancer check is non-empty, delete the ALB explicitly with the recovery command above. Mention deleting the `Gateway` before the cluster as the clean path.
 - **A student is on the wrong context and "nothing deletes"** — `eksctl delete cluster -f eks-cluster.yaml` operates on the config's cluster regardless of `kubectl` context, but confirm the `--region` matches where the cluster actually runs. A region mismatch is why a delete "succeeds" but the bill continues.
 
 ### Transition
@@ -1417,7 +1494,7 @@ Close the workshop's technical content by naming everything Production added and
 ### Talking points
 
 - **Production hardened the app and then moved it to the cloud.** The morning made the app autoscale, deploy safely, survive node drains, run least-privileged, and reconcile from git with secrets sealed. The afternoon stood the same app up on a real EKS cluster — durable EBS storage, an ALB front door, an `eks` overlay over the same base, its own Argo CD and its own sealed secret — then tore it back down cleanly.
-- **The contract-vs-controller theme paid off end to end.** The same PVC bound to local-path on `kind` and to a real EBS volume on EKS; the same `Ingress` was fulfilled by `ingress-nginx` on `kind` and a real ALB on EKS; the same Kustomize base ran on both via environment overlays. The resource was the stable contract; the controller behind it was environmental — exactly as Day 1 previewed.
+- **The contract-vs-controller theme paid off end to end.** The same PVC bound to local-path on `kind` and to a real EBS volume on EKS; the same `Gateway` and `HTTPRoute` were fulfilled by NGINX Gateway Fabric on `kind` and a real ALB on EKS; the same Kustomize base ran on both via environment overlays. The route was the stable contract; the controller behind it was environmental — named by the `GatewayClass`, exactly as Day 1 previewed.
 - **One cluster at a time, start to finish.** The migration was `kind` then EKS — never both at once, never one Argo CD across both, never an external-cluster registration. Each cluster ran its own Argo CD over its own overlay and sealed its own secret. That restraint is itself a Production lesson: the workshop's audience learns to operate one cluster well before reaching for fleet management.
 
 ### Transition
