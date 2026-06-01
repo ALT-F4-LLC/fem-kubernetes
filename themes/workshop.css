@@ -1,0 +1,65 @@
+/* @theme workshop */
+@import 'default';
+
+section {
+  background: black;
+  font-size: 28px;
+}
+
+h1 {
+  font-size: 48px;
+}
+
+h2 {
+  font-size: 34px;
+}
+
+section pre,
+section code {
+  font-size: 22px;
+}
+
+section.stage-foundations.divider {
+  border-top: 40px solid #7a3ff2;
+}
+
+section.stage-poc.divider {
+  border-top: 40px solid #1f6feb;
+}
+
+section.stage-stable.divider {
+  border-top: 40px solid #1a7f37;
+}
+
+section.stage-production.divider {
+  border-top: 40px solid #bc4c00;
+}
+
+section.stage-interlude.divider {
+  border-top: 40px solid #666666;
+}
+
+section.stage-foundations:not(.divider) {
+  border-left: 12px solid #7a3ff2;
+  padding-left: 56px;
+}
+
+section.stage-poc:not(.divider) {
+  border-left: 12px solid #1f6feb;
+  padding-left: 56px;
+}
+
+section.stage-stable:not(.divider) {
+  border-left: 12px solid #1a7f37;
+  padding-left: 56px;
+}
+
+section.stage-production:not(.divider) {
+  border-left: 12px solid #bc4c00;
+  padding-left: 56px;
+}
+
+section.stage-interlude:not(.divider) {
+  border-left: 12px solid #666666;
+  padding-left: 56px;
+}

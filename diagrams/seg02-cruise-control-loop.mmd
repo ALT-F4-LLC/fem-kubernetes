@@ -1,0 +1,10 @@
+flowchart LR
+    C1["Set 65 mph<br/>Desired state"]:::found
+    C2["Sense actual speed<br/>Actual state"]:::found
+    C3["Adjust throttle<br/>Reconciliation"]:::found
+    H["Hill slows the car<br/>Disturbance"]:::interlude
+    C1 --> C2 --> C3 --> C1
+    H -. "Hold 65 anyway<br/>Self-healing" .-> C3
+
+    classDef interlude fill:#ddd,stroke:#666,color:#222
+    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d

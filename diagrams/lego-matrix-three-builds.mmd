@@ -1,0 +1,55 @@
+block-beta
+    columns 4
+    H0["Block"] H1["Edge / device"] H2["Self-hosted"] H3["Cloud (EKS)"]
+    N1["1 Control plane"] N1E["D"] N1S["D"] N1C["D"]
+    N2["2 Worker nodes"] N2E["D"] N2S["D"] N2C["D"]
+    N3["3 Networking (CNI)"] N3E["D"] N3S["D"] N3C["D"]
+    N4["4 Storage (CSI / PVC)"] N4E["D"] N4S["D"] N4C["D"]
+    N5["5 Gateway + load balancer"] N5E["D"] N5S["D"] N5C["D"]
+    N6["6 DNS (CoreDNS) · anchor"] N6E["P"] N6S["P"] N6C["P"]
+    N7["7 Secrets / credentials"] N7E["D"] N7S["D"] N7C["D"]
+    N8["8 Autoscaling (HPA)"] N8E["A"] N8S["D"] N8C["P"]
+    N9["9 App + database · anchor"] N9E["P"] N9S["P"] N9C["P"]
+
+    style H0 fill:#cfe8ff,stroke:#1f6feb,color:#001f4d
+    style H1 fill:#cfe8ff,stroke:#1f6feb,color:#001f4d
+    style H2 fill:#cfe8ff,stroke:#1f6feb,color:#001f4d
+    style H3 fill:#cfe8ff,stroke:#1f6feb,color:#001f4d
+
+    style N1 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N2 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N3 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N4 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N5 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N6 fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N7 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N8 fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    style N9 fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+
+    style N1E fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N1S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N1C fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N2E fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N2S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N2C fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N3E fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N3S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N3C fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N4E fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N4S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N4C fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N5E fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N5S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N5C fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N6E fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N6S fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N6C fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N7E fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N7S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N7C fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N8E fill:#dddddd,stroke:#666666,color:#222222
+    style N8S fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N8C fill:#d4f5d4,stroke:#1a7f37,color:#0a3d12
+    style N9E fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N9S fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N9C fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12

@@ -1,0 +1,20 @@
+{
+  "theme": "base",
+  "flowchart": {
+    "htmlLabels": false
+  },
+  "themeVariables": {
+    "background": "transparent",
+    "edgeLabelBackground": "transparent",
+    "clusterBkg": "transparent",
+    "clusterBorder": "#cccccc",
+    "lineColor": "#cccccc",
+    "textColor": "#ffffff",
+    "primaryTextColor": "#ffffff",
+    "nodeTextColor": "#ffffff",
+    "labelColor": "#ffffff",
+    "labelTextColor": "#ffffff",
+    "titleColor": "#ffffff",
+    "tertiaryTextColor": "#ffffff"
+  }
+}

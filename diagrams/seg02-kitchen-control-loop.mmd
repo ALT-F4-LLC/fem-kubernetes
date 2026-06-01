@@ -1,0 +1,11 @@
+flowchart TB
+    K1["Tickets on the rail<br/>Desired state"]:::found
+    K2["Head chef<br/>Control plane"]:::found
+    K3["Line cook stations<br/>Worker nodes"]:::found
+    K4["Dishes<br/>Containers"]:::found
+    K1 --> K2
+    K2 -- "Hand dish to an open station<br/>Scheduling" --> K3
+    K3 --> K4
+    K2 -. "Reassign a dropped dish<br/>Self-healing" .-> K3
+
+    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
