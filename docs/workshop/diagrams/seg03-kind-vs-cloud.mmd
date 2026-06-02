@@ -1,17 +1,17 @@
 flowchart LR
-    subgraph KIND["Your kind cluster — today"]
+    subgraph KIND["Your local cluster"]
         direction TB
-        L1["Head chef<br/>Control plane<br/>on your laptop"]:::found
-        L2["Cook stations<br/>Worker nodes<br/>containers on one machine<br/>(1 control-plane + 2 workers)"]:::found
-        L3["Storage / volumes<br/>local-path — wiped on restart"]:::found
-        L4["Gateway + HTTPRoute / front door<br/>NGINX Gateway Fabric — NodePort on a laptop"]:::found
+        L1["Control plane<br/>on your laptop"]:::found
+        L2["Worker nodes<br/>containers on one machine"]:::found
+        L3["Storage / volumes<br/>local-path on filesystem"]:::found
+        L4["Gateway + HTTPRoute<br/>NodePort on a laptop"]:::found
     end
-    subgraph CLOUD["A cloud cluster (EKS) — Day 2"]
+    subgraph CLOUD["Your cloud cluster"]
         direction TB
-        R1["Head chef<br/>Control plane<br/>managed, always-on (highly available)<br/>Day 2 — you'll build this"]:::production
-        R2["Cook stations<br/>Worker nodes<br/>real separate machines<br/>Day 2 — you'll build this"]:::production
-        R3["Storage / volumes<br/>durable — survives restarts<br/>Day 2 — you'll build this"]:::production
-        R4["Gateway + HTTPRoute / front door<br/>real load balancer / front entrance<br/>Day 2 — you'll build this"]:::production
+        R1["Control plane<br/>managed, highly available"]:::production
+        R2["Worker nodes<br/>isolated machines"]:::production
+        R3["Storage / volumes<br/>networked, highly available"]:::production
+        R4["Gateway + HTTPRoute<br/>load balancer"]:::production
     end
     L1 -.-> R1
     L2 -.-> R2

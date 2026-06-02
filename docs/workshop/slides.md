@@ -66,7 +66,7 @@ Production-Grade Container Orchestration
 ## One app, two days, three scenarios
 
 - One Node/TypeScript API on Postgres
-- Proof-of-Concept: a bare Pod, built the wrong way on purpose
+- Proof-of-concept: a bare Pod, built the wrong way on purpose
 - Stable: declarative manifests you'd hand a teammate
 - Production: autoscaled GitOps on a real EKS cluster
 
@@ -103,37 +103,29 @@ You set the speed; the car does everything else to keep it.
 
 ---
 
-## The same loop, at cluster scale
+## The same loop, at kitchen scale
 
 ![h:460 Kitchen control loop: tickets are desired state, the head chef is the control plane, line-cook stations are worker nodes cooking the containers](img/diagrams/seg02-kitchen-control-loop.svg)
 
 One brain reads the orders; the stations do the cooking.
 
-<!-- ===== SEGMENT 03 · Foundations · Your First Cluster with kind ===== -->
+---
+
+# Your First Cluster
+
+![first](https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExb3hkM3E1eG9ybDNjN3kxc2hpd3czM3d3aGZudXMyMXBuN25vamc3YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26ybwvTX4DTkwst6U/giphy.gif)
 
 ---
 
-<!-- _class: invert lead stage-foundations divider -->
-
-# Your First Cluster with kind
-
-Segment 3 — Foundations
-
----
-
-<!-- _class: invert stage-foundations -->
-
-## Same resource, different controller
+## Same resources, different environment
 
 ![h:450 kind cluster today versus an EKS cloud cluster on Day 2: the same control plane, workers, storage, and Gateway, backed by different controllers per environment](img/diagrams/seg03-kind-vs-cloud.svg)
 
-The declaration stays; the controller behind it changes in Day 2.
+The declaration stays; the location changes.
 
 ---
 
-<!-- _class: invert stage-foundations -->
-
-## Create the cluster — one chef, two stations
+## Create the cluster - one chef, two stations
 
 ```bash
 $ kind create cluster --config kind-cluster.yaml
@@ -147,8 +139,6 @@ Set kubectl context to "kind-kind"
 
 ---
 
-<!-- _class: invert stage-foundations -->
-
 ## Proof the cluster is live
 
 ```bash
@@ -161,21 +151,13 @@ kind-worker2         Ready    <none>          40s
 
 Three nodes Ready: one head chef, two cook stations.
 
-<!-- ===== SEGMENT 04 · POC · Pods: Running the Sample App ===== -->
-
 ---
 
-<!-- _class: invert lead stage-poc divider -->
+# Kubernetes: Running an app
 
-# Pods: Running the Sample App
-
-Segment 4 — POC
-
-> "Just get a Pod running."
+> "Two peas in a pod."
 
 ---
-
-<!-- _class: invert stage-poc -->
 
 ## Run the app as a single bare Pod
 
@@ -189,13 +171,11 @@ NAME         READY   STATUS    RESTARTS   AGE
 sample-app   1/1     Running   0          12s
 ```
 
-`run` is how you explore, not how you operate.
+`kubectl run` is how you explore, not how you operate (unlike Docker, etc).
 
 ---
 
-<!-- _class: invert stage-poc -->
-
-## Delete it — watch nothing bring it back
+## Delete it - watch nothing bring it back
 
 ```bash
 $ kubectl delete pod sample-app
@@ -209,29 +189,19 @@ Nobody was watching it. So when it's gone, it's gone.
 
 ---
 
-<!-- _class: invert lead stage-poc -->
-
 ## ...where did it go?
 
-![w:520 A magician makes something vanish in a puff — the bare Pod is simply gone, nothing reschedules it](https://media.giphy.com/media/kelU5SPX69mnvlKts2/giphy.gif)
+![meeseeks](https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWJncXZhdXJkZDcya2V5cmYzMHdxaGF4c3Uyd3VmamZiNjBzYWZ0NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/lpxqmxzQHL7hUejepu/giphy.gif)
 
-A bare Pod has no controller above it. That gap is segment 5.
-
-<!-- ===== SEGMENT 05 · POC · Deployments & Self-Healing ===== -->
+Bare `pods` have no controller - so they dissapear.
 
 ---
-
-<!-- _class: invert lead stage-poc divider -->
 
 # Deployments & Self-Healing
 
-Segment 5 — POC
-
 ---
 
-<!-- _class: invert stage-poc -->
-
-## A Deployment watches the Pod for you
+## Deployment watches the Pod for you
 
 ```bash
 $ kubectl create deployment sample-app \
@@ -239,13 +209,11 @@ $ kubectl create deployment sample-app \
 deployment.apps/sample-app created
 ```
 
-The Deployment is cruise control: declare N, it holds N.
+Deployment is cruise control: declare N, it holds N.
 
 ---
 
-<!-- _class: invert stage-poc -->
-
-## Delete a Pod — this time it heals
+## Delete a Pod - this time it heals
 
 ```bash
 $ kubectl delete pod sample-app-7d9c4b5f8-2xq4r
@@ -256,11 +224,9 @@ NAME                         READY   STATUS    RESTARTS   AGE
 sample-app-7d9c4b5f8-9fk2p   1/1     Running   0          4s
 ```
 
-New name, restored count — and you did nothing.
+New name, restored count and you did nothing.
 
 ---
-
-<!-- _class: invert stage-poc -->
 
 ## Scaling is one flag
 
@@ -273,9 +239,7 @@ Change the desired count; the controller reconciles to it.
 
 ---
 
-<!-- _class: invert stage-poc -->
-
-## Postgres joins — ephemeral on purpose
+## Postgres joins - ephemeral on purpose
 
 ```bash
 $ kubectl create deployment postgres \
@@ -287,21 +251,13 @@ deployment.apps/postgres env updated
 
 No volume: this data dies on restart. We fix that in Stable.
 
-<!-- ===== SEGMENT 06 · POC · Services & Wiring the App to Postgres ===== -->
-
 ---
-
-<!-- _class: invert lead stage-poc divider -->
 
 # Services & Wiring the App to Postgres
 
-Segment 6 — POC
-
 ---
 
-<!-- _class: invert stage-poc -->
-
-## A Service is a stable address
+## Service is a stable address
 
 ```bash
 $ kubectl expose deployment postgres \
@@ -309,13 +265,11 @@ $ kubectl expose deployment postgres \
 service/postgres exposed
 ```
 
-Pod IPs churn; the app finds Postgres by the name `postgres`.
+Pod IPs rotate; app finds Postgres by the name `postgres` instead.
 
 ---
 
-<!-- _class: invert stage-poc -->
-
-## The secret is wrong — say it out loud
+## The secret is wrong - say it out loud
 
 ```bash
 $ kubectl set env deployment/sample-app \
@@ -327,8 +281,6 @@ deployment.apps/sample-app env updated
 Now in shell history and on this recording. Exactly how not to.
 
 ---
-
-<!-- _class: invert stage-poc -->
 
 ## Reach the app, then prove the data dies
 
@@ -345,66 +297,40 @@ Counter reset to 1: no volume, no durability.
 
 ---
 
-<!-- _class: invert stage-poc -->
+## Proof-of-Concept recap - what we built (and broke)
 
-## POC recap — what we built (and broke)
-
-- Nothing in git — every resource is a typed command
-- NodePort access — crude, not a real front door
+- Nothing in git - every resource is a typed command
+- NodePort access - crude, not a real front door
 - No health probes, no resource limits
-- Postgres data dies on restart — ephemeral by design
-- The password is plaintext on the recording
+- Postgres data dies on restart - ephemeral by design
+- The password is plaintext - insecure by choice
 
 ---
-
-<!-- _class: invert lead stage-poc -->
 
 ## Next: the state you'd hand a teammate
 
-![w:480 A recap beat before lunch — Stable turns every wrong choice into the right one](https://media.giphy.com/media/3o6ZtlYXUF93rBxr1K/giphy.gif)
+![handshake](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOG1jaGV5dmQ5dnlvaG9leGN2M3J4YmZ1ZGpmbnFucmFxN2E2cjF5biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/2HtWpp60NQ9CU/giphy.gif)
 
-Stable is the list of fixes. Eat first.
-
-<!-- ===== SEGMENT 07 · Interlude · Lunch ===== -->
+Stable is the list of fixes.
 
 ---
 
-<!-- _class: invert lead stage-interlude divider -->
+# Kubernetes: Imperative to Declarative
 
-# Lunch
-
-Segment 7 — Interlude
-
-Back at 12:45 — Stable starts after the break.
-
-<!-- ===== SEGMENT 08 · Stable · From Imperative to Declarative ===== -->
+> "Imperative is for testing; declarative is for scaling."
 
 ---
 
-<!-- _class: invert lead stage-stable divider -->
+## What is a manifest?
 
-# From Imperative to Declarative
-
-Segment 8 — Stable
-
-> "Imperative is how you explore; manifests are how you operate."
-
----
-
-<!-- _class: invert stage-stable -->
-
-## The afternoon turns on one line
-
-- Morning commands were one-shot, with no record
+- Previous commands were one-shot, with no record
 - A manifest is the desired state, written down
 - Reviewable, diffable, recreatable, in git
-- Same desired state — now in a file, not your head
+- Same desired state - now in a file, not your head
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## apply is declarative; diff shows it first
+## Apply is declarative; Diff shows the changes
 
 ```bash
 $ kubectl diff -f deployment.yaml
@@ -419,8 +345,6 @@ See the change, then apply. Re-applying is a no-op.
 
 ---
 
-<!-- _class: invert stage-stable -->
-
 ## Labels and selectors are the wiring
 
 ```bash
@@ -432,21 +356,13 @@ deployment.apps/sample-app   1/1     1            1
 $ git commit -m "Declare app + Postgres as manifests"
 ```
 
-The selector must match the Pod's labels — write both by hand.
-
-<!-- ===== SEGMENT 09 · Stable · Health Checks & Resource Management ===== -->
+The selector must match the Pod's labels - write both by hand.
 
 ---
-
-<!-- _class: invert lead stage-stable divider -->
 
 # Health Checks & Resource Management
 
-Segment 9 — Stable
-
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## Three probes, three different questions
 
@@ -457,9 +373,7 @@ Segment 9 — Stable
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## Break /healthz on purpose — watch it heal
+## Break /healthz on purpose - watch it heal
 
 ```bash
 $ kubectl exec deploy/sample-app -- sh -c 'kill -USR1 1'
@@ -475,8 +389,6 @@ A running process isn't a working app. The probe knows the difference.
 
 ---
 
-<!-- _class: invert stage-stable -->
-
 ## The events name why it restarted
 
 ```bash
@@ -488,34 +400,24 @@ Events:
            probe, will be restarted
 ```
 
-The control loop learned "the app works" is not "the process exists."
-
-<!-- ===== SEGMENT 10 · Stable · ConfigMaps, Secrets & Namespaces ===== -->
+The loop learned "the app works" is not "the process exists."
 
 ---
-
-<!-- _class: invert lead stage-stable divider -->
 
 # ConfigMaps, Secrets & Namespaces
 
-Segment 10 — Stable
-
 ---
 
-<!-- _class: invert stage-stable -->
+## Config and the manifest
 
-## Config out of the image and the manifest
-
-- ConfigMap: non-secret config — host, port, db name
+- ConfigMap: non-secret config - host, port, db name
 - Secret: sensitive values, handled with more care
 - Namespace: the app/tooling boundary
 - The split is about sensitivity, not mechanism
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## A Secret is base64-encoded, NOT encrypted
+## Secrets are base64-encoded, NOT encrypted
 
 ```bash
 $ kubectl create secret generic db-secret \
@@ -528,19 +430,11 @@ demo-not-a-real-password
 
 Came straight back with a standard tool, no key. That's why it stays out of git.
 
-<!-- ===== SEGMENT 11 · Stable · Gateway API ===== -->
-
 ---
-
-<!-- _class: invert lead stage-stable divider -->
 
 # Gateway API
 
-Segment 11 — Stable
-
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## The route is the contract; the controller is local
 
@@ -550,8 +444,6 @@ Segment 11 — Stable
 - gatewayClassName is the one line that names it
 
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## Write the listener and the routing
 
@@ -567,11 +459,9 @@ spec:
 $ kubectl apply -f gateway.yaml -f httproute.yaml
 ```
 
-`gatewayClassName: nginx` is the only line EKS changes in seg 26.
+`gatewayClassName: nginx` is the only line EKS changes.
 
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## The controller wired it up
 
@@ -585,34 +475,24 @@ $ curl -H "Host: sample-app.local" \
 ok
 ```
 
-Same Gateway and HTTPRoute on EKS — a different controller fulfills them.
-
-<!-- ===== SEGMENT 12 · Stable · Operators & CRDs ===== -->
+Same Gateway and HTTPRoute on EKS - a different controller fulfills them.
 
 ---
-
-<!-- _class: invert lead stage-stable divider -->
 
 # Operators & CRDs
 
-Segment 12 — Stable
-
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## A CRD is a new kind; an operator is its loop
 
 - A CRD teaches the API server a new kind
 - `kubectl get clusters` becomes as real as `get pods`
 - An operator is the control loop that reconciles them
-- We consume an operator — we do not write one
+- We consume an operator - we do not write one
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## Install the operator — no database yet
+## Install the operator - no database yet
 
 ```bash
 $ kubectl apply --server-side -f <cnpg-release>.yaml
@@ -626,32 +506,22 @@ $ kubectl get clusters -A
 No resources found
 ```
 
-The kind exists; nothing has declared one. That's segment 13.
-
-<!-- ===== SEGMENT 13 · Stable · Durable Postgres with CloudNativePG ===== -->
+The kind exists; nothing has declared one.
 
 ---
-
-<!-- _class: invert lead stage-stable divider -->
 
 # Durable Postgres with CloudNativePG
 
-Segment 13 — Stable
-
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## You declare a Cluster; the operator does the rest
 
 - CNPG manages Pods and PVCs like a StatefulSet would
 - Plus failover, backups, and safe rolling upgrades
-- It generates and owns the credentials — no human did
+- It generates and owns the credentials - no human did
 - The app talks to the `-rw` Service
 
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## A few lines of YAML become durable Postgres
 
@@ -668,13 +538,11 @@ NAME       READY   STATUS                     PRIMARY
 postgres   1       Cluster in healthy state   postgres-1
 ```
 
-A StatefulSet's worth of machinery — managed for you.
+StatefulSet's worth of configs - managed for you.
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## Restart the Pod — the data survives
+## Restart the Pod - the data survives
 
 ```bash
 $ curl .../<data>            # {"count": 1}
@@ -684,31 +552,21 @@ pod "postgres-1" deleted
 $ curl .../<data>            # {"count": 2}
 ```
 
-The count continued. POC reset to 1 — the PVC outlives the Pod.
+The count continued. POC reset to 1 - the PVC outlives the Pod.
 
 ---
-
-<!-- _class: invert lead stage-stable -->
 
 ## ...and this time it survives
 
-![w:480 The data outlived the Pod restart — the exact POC failure, now fixed by a PVC](https://media.giphy.com/media/3o6ZtlYXUF93rBxr1K/giphy.gif)
+![w:480 The data outlived the Pod restart - the exact POC failure, now fixed by a PVC](https://media.giphy.com/media/3o6ZtlYXUF93rBxr1K/giphy.gif)
 
-By end of Day 1, no human authored the database password.
-
-<!-- ===== SEGMENT 14 · Stable · Organizing Manifests with Kustomize ===== -->
+No human authored the database password.
 
 ---
-
-<!-- _class: invert lead stage-stable divider -->
 
 # Organizing Manifests with Kustomize
 
-Segment 14 — Stable
-
 ---
-
-<!-- _class: invert stage-stable -->
 
 ## A base collects manifests into one unit
 
@@ -725,13 +583,11 @@ resources:
 $ kubectl apply -k k8s/base
 ```
 
-`apply -k` is built into kubectl. Base only — overlays are Production.
+`kubectl apply -k` is built into kubectl. Base only - overlays are Production.
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## Stable recap — every POC sin, fixed
+## Stable recap - every proof-of-concept sin, fixed
 
 - Declarative and in git, organized as a Kustomize base
 - Probed: readiness, liveness, startup
@@ -741,9 +597,7 @@ $ kubectl apply -k k8s/base
 
 ---
 
-<!-- _class: invert stage-stable -->
-
-## Stable recap — what's still wrong
+## Stable recap - what's still wrong
 
 - Runs on exactly one local cluster
 - Scaling is manual
@@ -751,79 +605,27 @@ $ kubectl apply -k k8s/base
 - Over-permissioned default ServiceAccount
 - No story for a node going away
 
-<!-- ===== SEGMENT 15 · Interlude · Day 1 Close ===== -->
+---
+
+# Day 1 Wrap-up
 
 ---
 
-<!-- _class: invert lead stage-interlude divider -->
+## Half of the climb
 
-# Day 1 Close
+![h:430 Two-day day-shape with Day 1 highlighted: Foundations, POC, then Stable on kind - Day 2's Production and EKS capstone still ahead](img/diagrams/day-shape.svg)
 
-Segment 15 — Interlude
-
----
-
-<!-- _class: invert stage-interlude -->
-
-## The Day 1 half of the climb
-
-![h:430 Two-day day-shape with Day 1 highlighted: Foundations, POC, then Stable on kind — Day 2's Production and EKS capstone still ahead](img/diagrams/day-shape.svg)
-
-Imperative POC to declarative Stable — all on one `kind` cluster.
+Imperative POC to declarative Stable - all on one `kind` cluster.
 
 ---
-
-<!-- _class: invert lead stage-interlude -->
 
 ## ...you made it through Day 1
 
-![w:440 A recap beat at the day boundary — Foundations, POC, and Stable are done](https://media.giphy.com/media/3ornk57KwDXf81rjWM/giphy.gif)
+![recap](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTduYnFyd2hiamh6eDllNXZodDVibzR3NnFjcmhjN3c2aDNrYm1mYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/sBLcw5Ic4QUTK/giphy.gif)
 
 Leave the cluster as-is, or check out the `stable` branch tomorrow.
 
 ---
-
-<!-- _class: invert stage-interlude -->
-
-## One last picture: same bricks, three builds
-
-![h:480 A 9-block by 3-build matrix — edge, self-hosted, and cloud (EKS) clusters from the same brick set; most rows differ only in the controller, DNS and the app are identical anchors, autoscaling is absent at the edge](img/diagrams/lego-matrix-three-builds.svg)
-
-Same resources, same app — what changes underneath is the controller, not the contract.
-
----
-
-<!-- _class: invert stage-interlude -->
-
-## The three builds, drawn — Edge
-
-![h:480 Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, gateway, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/diagrams/lego-edge-cluster.svg)
-
-Closest to your laptop's `kind` — ephemeral storage, and no HPA brick at all.
-
----
-
-<!-- _class: invert stage-interlude -->
-
-## The three builds, drawn — Self-hosted
-
-![h:480 Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, gateway, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/diagrams/lego-selfhosted-cluster.svg)
-
-Every controller behind a resource is one you installed yourself.
-
----
-
-<!-- _class: invert stage-interlude -->
-
-## The three builds, drawn — Cloud (EKS)
-
-![h:480 Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, gateway, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/diagrams/lego-cloud-cluster.svg)
-
-The control plane seals shut and the HPA snaps in solid — the only one Day 2 actually builds.
-
----
-
-<!-- _class: invert stage-interlude -->
 
 ## Tomorrow: the right-hand column
 
@@ -831,19 +633,11 @@ The control plane seals shut and the HPA snaps in solid — the only one Day 2 a
 - Day 2 is the journey to the managed cloud build
 - Production hardens it; the EKS capstone runs it for real
 
-<!-- ===== SEGMENT 16 · Interlude · Day 2 Kickoff ===== -->
-
 ---
-
-<!-- _class: invert lead stage-interlude divider -->
 
 # Day 2 Kickoff
 
-Segment 16 — Interlude
-
 ---
-
-<!-- _class: invert stage-interlude -->
 
 ## Where we left it
 
@@ -856,12 +650,12 @@ Segment 16 — Interlude
 
 <!-- _class: invert stage-interlude -->
 
-## The Day 2 promise — by 4:15 the same app
+## The Day 2 promise - by 4:15 the same app
 
 - Autoscales under load
 - Rolls out safely, with a rollback story
 - Is RBAC-scoped, keeps its secrets git-safe
-- Is driven by Argo CD from git — and runs on EKS
+- Is driven by Argo CD from git - and runs on EKS
 
 <!-- ===== SEGMENT 17 · Production · Autoscaling with HPA ===== -->
 
@@ -871,9 +665,9 @@ Segment 16 — Interlude
 
 # Autoscaling with HPA
 
-Segment 17 — Production
+Segment 17 - Production
 
-> "The app sizes itself to load — no human typing `scale`."
+> "The app sizes itself to load - no human typing `scale`."
 
 ---
 
@@ -883,7 +677,7 @@ Segment 17 — Production
 
 - You declare a CPU target; the HPA holds the replica count to it
 - `kind` ships no metrics, so `metrics-server` goes in first
-- Let it warm up while you walk the spec — `<unknown>` early is just "not scraped yet"
+- Let it warm up while you walk the spec - `<unknown>` early is just "not scraped yet"
 - Percentage is against the Pod's CPU **request** (set back in Stable)
 
 ---
@@ -904,13 +698,13 @@ $ kubectl autoscale deployment sample-app \
 horizontalpodautoscaler.autoscaling/sample-app autoscaled
 ```
 
-`--kubelet-insecure-tls` is a `kind`-only concession — name it out loud.
+`--kubelet-insecure-tls` is a `kind`-only concession - name it out loud.
 
 ---
 
 <!-- _class: invert stage-production -->
 
-## Drive load — watch replicas climb, then settle
+## Drive load - watch replicas climb, then settle
 
 ```bash
 $ kubectl run load --rm -it --image=busybox -- sh -c \
@@ -924,7 +718,7 @@ sample-app   Deployment/sample-app   cpu: 180%/50%  4
 sample-app   Deployment/sample-app   cpu: 61%/50%   4
 ```
 
-It grew under load and shrinks back — scale-down lags on purpose.
+It grew under load and shrinks back - scale-down lags on purpose.
 
 <!-- ===== SEGMENT 18 · Production · Safe Rollouts & Rollbacks ===== -->
 
@@ -934,7 +728,7 @@ It grew under load and shrinks back — scale-down lags on purpose.
 
 # Safe Rollouts & Rollbacks
 
-Segment 18 — Production
+Segment 18 - Production
 
 ---
 
@@ -943,7 +737,7 @@ Segment 18 — Production
 ## A rolling update, gated by the probe
 
 - `maxSurge` / `maxUnavailable`: replace Pods a few at a time, capacity stays up
-- The readiness probe is the interlock — a new Pod counts only once it's ready
+- The readiness probe is the interlock - a new Pod counts only once it's ready
 - A new version that never gets ready can't proceed: the rollout **stalls**
 - A stalled rollout is the guardrail working, not a failure
 
@@ -951,7 +745,7 @@ Segment 18 — Production
 
 <!-- _class: invert stage-production -->
 
-## Break it on purpose — the rollout stalls
+## Break it on purpose - the rollout stalls
 
 ```bash
 $ kubectl set image deployment/sample-app \
@@ -966,7 +760,7 @@ sample-app-7d9c4b5f8-2xq4r 1/1    Running           0
 sample-app-6c4f9b2a1-pk8wd 0/1    ImagePullBackOff  0
 ```
 
-New Pod wedged, old Pod still serving — the app is **not** down.
+New Pod wedged, old Pod still serving - the app is **not** down.
 
 ---
 
@@ -982,7 +776,7 @@ deployment.apps/sample-app rolled back
 deployment "sample-app" successfully rolled out
 ```
 
-`undo` reverts to the last known-good ReplicaSet — already on disk.
+`undo` reverts to the last known-good ReplicaSet - already on disk.
 
 <!-- ===== SEGMENT 19 · Production · PodDisruptionBudgets & Node Drains ===== -->
 
@@ -992,7 +786,7 @@ deployment "sample-app" successfully rolled out
 
 # PodDisruptionBudgets & Node Drains
 
-Segment 19 — Production
+Segment 19 - Production
 
 ---
 
@@ -1000,8 +794,8 @@ Segment 19 — Production
 
 ## Voluntary disruption is the kind you can plan for
 
-- Involuntary (a node crashes) — you only heal afterward
-- Voluntary (an admin drains for maintenance) — a PDB can hold it back
+- Involuntary (a node crashes) - you only heal afterward
+- Voluntary (an admin drains for maintenance) - a PDB can hold it back
 - A PDB says "never fewer than N app Pods available"
 - `drain` cordons the node and evicts politely, honoring the PDB
 
@@ -1028,7 +822,7 @@ sample-app   2               1                     10s
 
 <!-- _class: invert lead stage-production -->
 
-## Drain the node — the app keeps answering
+## Drain the node - the app keeps answering
 
 ```bash
 $ kubectl drain kind-worker \
@@ -1041,7 +835,7 @@ $ curl -H "Host: sample-app.local" localhost/healthz
 ok
 ```
 
-The node went out for maintenance — a user would never have known.
+The node went out for maintenance - a user would never have known.
 
 <!-- ===== SEGMENT 20 · Production · RBAC & Least Privilege ===== -->
 
@@ -1051,17 +845,17 @@ The node went out for maintenance — a user would never have known.
 
 # RBAC & Least Privilege
 
-Segment 20 — Production
+Segment 20 - Production
 
 ---
 
 <!-- _class: invert stage-production -->
 
-## Give the workload its job — and nothing more
+## Give the workload its job - and nothing more
 
 - It's been running under the namespace's broad `default` ServiceAccount
 - Role = allowed verbs on resources; RoleBinding ties a Role to a subject
-- This app only reads its own ConfigMap — that's the entire grant
+- This app only reads its own ConfigMap - that's the entire grant
 - It never calls the API, so don't even mount a token
 
 ---
@@ -1110,7 +904,7 @@ Compromise this Pod and the cluster blast radius is exactly that Role.
 
 # GitOps with Argo CD
 
-Segment 21 — Production
+Segment 21 - Production
 
 ---
 
@@ -1118,8 +912,8 @@ Segment 21 — Production
 
 ## The cruise-control loop, with git as the dial
 
-- Git is the desired state; Argo CD drives the cluster to match — forever
-- You stop running `apply` — you commit, the reconciler applies
+- Git is the desired state; Argo CD drives the cluster to match - forever
+- You stop running `apply` - you commit, the reconciler applies
 - One Argo CD per cluster, managing the cluster it lives in
 - Budget reality: install + **one** synced app; drift demo if time allows
 
@@ -1143,7 +937,7 @@ spec:
 EOF
 ```
 
-`destination.server` is the in-cluster API — no external registration.
+`destination.server` is the in-cluster API - no external registration.
 
 ---
 
@@ -1162,7 +956,7 @@ NAME         READY   UP-TO-DATE   AVAILABLE
 sample-app   2/2     2            2
 ```
 
-`selfHeal` reverts the manual change — git won, no one applied it.
+`selfHeal` reverts the manual change - git won, no one applied it.
 
 <!-- ===== SEGMENT 22 · Interlude · Lunch ===== -->
 
@@ -1172,9 +966,9 @@ sample-app   2/2     2            2
 
 # Lunch
 
-Segment 22 — Interlude
+Segment 22 - Interlude
 
-Back at 12:45 — the afternoon takes the same app to the cloud.
+Back at 12:45 - the afternoon takes the same app to the cloud.
 
 <!-- ===== SEGMENT 23 · Production · GitOps Secrets with Sealed Secrets ===== -->
 
@@ -1184,7 +978,7 @@ Back at 12:45 — the afternoon takes the same app to the cloud.
 
 # GitOps Secrets with Sealed Secrets
 
-Segment 23 — Production
+Segment 23 - Production
 
 ---
 
@@ -1192,9 +986,9 @@ Segment 23 — Production
 
 ## First two minutes: start EKS in the background
 
-- `eksctl create cluster` now — a control plane takes 15-20 min
+- `eksctl create cluster` now - a control plane takes 15-20 min
 - It provisions unattended while this whole segment stays on `kind`
-- base64 is not encryption — that's why the Secret was kept out of git
+- base64 is not encryption - that's why the Secret was kept out of git
 - Sealed Secrets is the operator pattern again, doing one thing: decrypt
 
 ---
@@ -1215,13 +1009,13 @@ $ kubectl apply -f .../sealed-secrets/.../controller.yaml
 deployment.apps/sealed-secrets-controller created
 ```
 
-Leave EKS building; do not wait on it — teach while it provisions.
+Leave EKS building; do not wait on it - teach while it provisions.
 
 ---
 
 <!-- _class: invert stage-production -->
 
-## Seal the Secret — plaintext stays local
+## Seal the Secret - plaintext stays local
 
 ```bash
 $ kubectl create secret generic db-extra -n app \
@@ -1235,7 +1029,7 @@ $ kubeseal --controller-namespace kube-system \
 $ rm db-extra-secret.yaml   # never commit the plaintext
 ```
 
-`demo-not-a-real-password` is a throwaway — the app never reads it.
+`demo-not-a-real-password` is a throwaway - the app never reads it.
 
 ---
 
@@ -1266,18 +1060,18 @@ Commit the `SealedSecret`; the controller decrypts it in-cluster.
 
 # Going to the Cloud: Your EKS Cluster
 
-Segment 24 — Production
+Segment 24 - Production
 
 ---
 
 <!-- _class: invert stage-production -->
 
-## The cluster from segment 23 is up — no wait
+## The cluster from segment 23 is up - no wait
 
-- EKS runs the control plane: API server, etcd, scheduler — all managed
+- EKS runs the control plane: API server, etcd, scheduler - all managed
 - You own the worker nodes and the workloads; never SSH the control plane
-- One cluster at a time — we *migrate* to EKS, we don't federate
-- It bills by the hour — which is exactly why segment 30 tears it down
+- One cluster at a time - we *migrate* to EKS, we don't federate
+- It bills by the hour - which is exactly why segment 30 tears it down
 
 ---
 
@@ -1301,7 +1095,7 @@ The context switch is what moves every command to the cloud.
 
 <!-- _class: invert stage-production -->
 
-## Up, but bare — name the gaps
+## Up, but bare - name the gaps
 
 ```bash
 $ kubectl get storageclass
@@ -1309,9 +1103,9 @@ NAME   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE
 gp2    kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer
 ```
 
-- No local-path provisioner — storage is the next gap (25)
-- No Gateway controller — networking after that (26)
-- No Sealed Secrets controller yet — its own key comes in 28
+- No local-path provisioner - storage is the next gap (25)
+- No Gateway controller - networking after that (26)
+- No Sealed Secrets controller yet - its own key comes in 28
 
 <!-- ===== SEGMENT 25 · Production · Cluster Storage & the EBS CSI Driver ===== -->
 
@@ -1321,7 +1115,7 @@ gp2    kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer
 
 # Cluster Storage & the EBS CSI Driver
 
-Segment 25 — Production
+Segment 25 - Production
 
 ---
 
@@ -1329,9 +1123,9 @@ Segment 25 — Production
 
 ## The PVC is the contract; the provisioner is environmental
 
-- A PVC is a stable request — "10Gi of durable storage"
+- A PVC is a stable request - "10Gi of durable storage"
 - `kind` answered it with local-path; EKS answers with EBS CSI
-- gp3 over the default gp2 — better baseline, decoupled IOPS
+- gp3 over the default gp2 - better baseline, decoupled IOPS
 - `WaitForFirstConsumer`: bind the zonal volume where the Pod lands
 
 ---
@@ -1374,7 +1168,7 @@ $ aws ec2 describe-volumes --region <region> \
 [ { "ID": "vol-0abc123def456", "Type": "gp3" } ]
 ```
 
-Same Postgres manifest — manifest portable, storage class environmental.
+Same Postgres manifest - manifest portable, storage class environmental.
 
 <!-- ===== SEGMENT 26 · Production · Cloud Networking & the AWS Load Balancer Controller ===== -->
 
@@ -1384,7 +1178,7 @@ Same Postgres manifest — manifest portable, storage class environmental.
 
 # Cloud Networking & the AWS Load Balancer Controller
 
-Segment 26 — Production
+Segment 26 - Production
 
 ---
 
@@ -1392,7 +1186,7 @@ Segment 26 — Production
 
 ## The callback: route is a contract, controller is environmental
 
-- Same lesson as storage — now for the front door
+- Same lesson as storage - now for the front door
 - On `kind`, NGINX Gateway Fabric fulfilled the `Gateway`/`HTTPRoute`
 - On EKS, the AWS LB Controller turns the same YAML into a real ALB
 - A `GatewayClass` names which controller picks up the `Gateway`
@@ -1415,7 +1209,7 @@ $ kubectl apply -f .../v3_X_Y_full.yaml   # pin v3.0.0+
 deployment.apps/aws-load-balancer-controller created
 ```
 
-`v3_X_Y_full.yaml` is a placeholder — apply your pinned version.
+`v3_X_Y_full.yaml` is a placeholder - apply your pinned version.
 
 ---
 
@@ -1436,7 +1230,7 @@ EOF
 gatewayclass.gateway.networking.k8s.io/alb created
 ```
 
-The old `Ingress` smeared `alb.ingress.*` annotations — now real objects.
+The old `Ingress` smeared `alb.ingress.*` annotations - now real objects.
 
 ---
 
@@ -1459,7 +1253,7 @@ $ curl http://k8s-sampleapp-xxxx...elb.amazonaws.com/healthz
 ok
 ```
 
-Only `gatewayClassName` changed — contract unchanged, controller environmental.
+Only `gatewayClassName` changed - contract unchanged, controller environmental.
 
 <!-- ===== SEGMENT 27 · Production · Environment Overlays with Kustomize ===== -->
 
@@ -1469,7 +1263,7 @@ Only `gatewayClassName` changed — contract unchanged, controller environmental
 
 # Environment Overlays with Kustomize
 
-Segment 27 — Production
+Segment 27 - Production
 
 ---
 
@@ -1477,10 +1271,10 @@ Segment 27 — Production
 
 ## Two overlays over the untouched segment-14 base
 
-- The base stays exactly as it is — overlays patch, never rewrite
+- The base stays exactly as it is - overlays patch, never rewrite
 - An overlay = a few patches + a reference to the base
 - `kind`: local-path, `nginx` class, low replicas
-- `eks`: gp3, `alb` class, higher replicas — express difference, not two live clusters
+- `eks`: gp3, `alb` class, higher replicas - express difference, not two live clusters
 
 ---
 
@@ -1520,7 +1314,7 @@ $ diff <(kubectl kustomize k8s/base) \
 >   storageClass: gp3
 ```
 
-A handful of lines — that's the entire `kind`-to-cloud delta.
+A handful of lines - that's the entire `kind`-to-cloud delta.
 
 <!-- ===== SEGMENT 28 · Production · GitOps on EKS ===== -->
 
@@ -1530,16 +1324,16 @@ A handful of lines — that's the entire `kind`-to-cloud delta.
 
 # GitOps on EKS
 
-Segment 28 — Production
+Segment 28 - Production
 
 ---
 
 <!-- _class: invert stage-production -->
 
-## Argo CD lives in the cluster it manages — so EKS gets its own
+## Argo CD lives in the cluster it manages - so EKS gets its own
 
 - Same install as segment 21, on EKS, reconciling the `eks` overlay
-- No external-cluster registration, no fan-out — one Argo CD per cluster
+- No external-cluster registration, no fan-out - one Argo CD per cluster
 - The `kind`-sealed Secret can't decrypt here: keys are per-cluster
 - So EKS installs its own controller and seals its own copy
 
@@ -1547,7 +1341,7 @@ Segment 28 — Production
 
 <!-- _class: invert stage-production -->
 
-## Seal the EKS copy — stdin, no plaintext on disk
+## Seal the EKS copy - stdin, no plaintext on disk
 
 ```bash
 $ kubectl config current-context   # must be EKS
@@ -1562,7 +1356,7 @@ $ kubectl create secret generic db-extra -n app \
   > overlays/eks/sealed-db-extra.yaml
 ```
 
-Piping into `kubeseal` beats write-then-`rm` — nothing to forget on disk.
+Piping into `kubeseal` beats write-then-`rm` - nothing to forget on disk.
 
 ---
 
@@ -1585,7 +1379,7 @@ NAME         SYNC STATUS   HEALTH STATUS
 sample-app   Synced        Healthy
 ```
 
-`path: overlays/eks` — point at `base` and EKS gets the `kind` values.
+`path: overlays/eks` - point at `base` and EKS gets the `kind` values.
 
 <!-- ===== SEGMENT 29 · Production · Built-in & Platform Observability ===== -->
 
@@ -1595,7 +1389,7 @@ sample-app   Synced        Healthy
 
 # Built-in & Platform Observability
 
-Segment 29 — Production
+Segment 29 - Production
 
 ---
 
@@ -1603,10 +1397,10 @@ Segment 29 — Production
 
 ## Get a long way before a metrics stack earns its weight
 
-- `kubectl top` — live CPU/memory per Pod and node, from `metrics-server`
-- Events — the cluster's running narration of what happened and why
-- `kubectl rollout status` — observability for deploys, not just debugging
-- EKS CloudWatch Container Insights — the platform's own metrics sink
+- `kubectl top` - live CPU/memory per Pod and node, from `metrics-server`
+- Events - the cluster's running narration of what happened and why
+- `kubectl rollout status` - observability for deploys, not just debugging
+- EKS CloudWatch Container Insights - the platform's own metrics sink
 
 ---
 
@@ -1639,7 +1433,7 @@ $ aws eks create-addon --cluster-name fem-workshop \
 { "addon": { "status": "CREATING" } }
 ```
 
-We stop here on purpose: a Prometheus/Grafana/Loki stack is its own thing to run, scale, secure, and pay for — reach for it when built-in and platform signals stop being enough, not by default.
+We stop here on purpose: a Prometheus/Grafana/Loki stack is its own thing to run, scale, secure, and pay for - reach for it when built-in and platform signals stop being enough, not by default.
 
 <!-- ===== SEGMENT 30 · Production · Tearing It Down ===== -->
 
@@ -1649,7 +1443,7 @@ We stop here on purpose: a Prometheus/Grafana/Loki stack is its own thing to run
 
 # Tearing It Down
 
-Segment 30 — Production
+Segment 30 - Production
 
 ---
 
@@ -1657,9 +1451,9 @@ Segment 30 — Production
 
 ## Cleanup is operational discipline, not tidying
 
-- Control plane, nodes, EBS volumes, ALB — each bills by the hour
+- Control plane, nodes, EBS volumes, ALB - each bills by the hour
 - `eksctl delete cluster` removes what `eksctl` created
-- Orphans come from what it *didn't* create — the ALB and the EBS volumes
+- Orphans come from what it *didn't* create - the ALB and the EBS volumes
 - The rule is two steps: delete, then **verify**
 
 ---
@@ -1682,7 +1476,7 @@ $ aws ec2 describe-volumes --region <region> \
 []
 ```
 
-Two empty lists — the clean case, and the one to make students see.
+Two empty lists - the clean case, and the one to make students see.
 
 ---
 
@@ -1697,7 +1491,7 @@ $ eksctl get cluster --region <region>
 No clusters found in <region>.
 ```
 
-Down, verified clean, nothing billing — no one leaves Day 2 with a live cluster.
+Down, verified clean, nothing billing - no one leaves Day 2 with a live cluster.
 
 <!-- ===== SEGMENT 31 · Production · Day 2 Recap: End of Production ===== -->
 
@@ -1707,13 +1501,13 @@ Down, verified clean, nothing billing — no one leaves Day 2 with a live cluste
 
 # Day 2 Recap: End of Production
 
-Segment 31 — Production
+Segment 31 - Production
 
 ---
 
 <!-- _class: invert stage-production -->
 
-## What Production added — hardened, then cloud
+## What Production added - hardened, then cloud
 
 - **Autoscaling:** an HPA sizes the app to CPU load, up and back down
 - **Safe rollouts:** readiness-gated, with `rollout undo` to a known-good
@@ -1726,10 +1520,10 @@ Segment 31 — Production
 
 ## ...and made it cloud-native and git-driven
 
-- **GitOps:** Argo CD reconciles git and self-heals drift — no hand-applies
+- **GitOps:** Argo CD reconciles git and self-heals drift - no hand-applies
 - **Git-safe secrets:** Sealed Secrets, each cluster sealing its own copy
 - **Migrated to EKS over the same base:** EBS storage, an ALB, an `eks` overlay
-- One cluster at a time — then torn down clean, nothing left billing
+- One cluster at a time - then torn down clean, nothing left billing
 
 ---
 
@@ -1750,7 +1544,7 @@ Segment 31 — Production
 
 # Wrap-Up
 
-Segment 32 — Interlude
+Segment 32 - Interlude
 
 ---
 
@@ -1758,7 +1552,7 @@ Segment 32 — Interlude
 
 ## The whole climb, drawn once more
 
-![h:430 The full two-day day-shape: Foundations and POC into Stable on Day 1, then Production hardening and the EKS capstone on Day 2 — one application rising through every stage](img/diagrams/day-shape.svg)
+![h:430 The full two-day day-shape: Foundations and POC into Stable on Day 1, then Production hardening and the EKS capstone on Day 2 - one application rising through every stage](img/diagrams/day-shape.svg)
 
 One app rode from a bare Pod to autoscaled GitOps on a real cloud cluster.
 
@@ -1768,10 +1562,10 @@ One app rode from a bare Pod to autoscaled GitOps on a real cloud cluster.
 
 ## The diff between stages is the workshop
 
-- **Kubernetes docs** — the API reference for everything you touched
-- **CloudNativePG docs** — the operator behind durable Postgres in Stable
-- **Argo CD + Sealed Secrets docs** — the GitOps and secrets tooling
-- **Stage branches** `poc` / `stable` / `production` — each stage's exact end-state
+- **Kubernetes docs** - the API reference for everything you touched
+- **CloudNativePG docs** - the operator behind durable Postgres in Stable
+- **Argo CD + Sealed Secrets docs** - the GitOps and secrets tooling
+- **Stage branches** `poc` / `stable` / `production` - each stage's exact end-state
 
 ---
 
@@ -1779,6 +1573,6 @@ One app rode from a bare Pod to autoscaled GitOps on a real cloud cluster.
 
 ## ...go run your own clusters on Monday
 
-![w:440 A closing recap beat — two days done, the full maturity arc behind you](https://media.giphy.com/media/3ornk57KwDXf81rjWM/giphy.gif)
+![w:440 A closing recap beat - two days done, the full maturity arc behind you](https://media.giphy.com/media/3ornk57KwDXf81rjWM/giphy.gif)
 
-Same bricks, three builds — now you know which posture fits which context.
+Same bricks, three builds - now you know which posture fits which context.
