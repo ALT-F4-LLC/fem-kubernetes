@@ -1,0 +1,21 @@
+block-beta
+    columns 3
+    N1["1 Control plane<br/>managed · HA · sealed"]
+    N2["2 Worker nodes<br/>EC2 node group (eksctl)"]
+    N3["3 Networking CNI<br/>AWS VPC CNI · real VPC IPs"]
+    N4["4 Storage<br/>EBS CSI · gp3 · durable"]
+    N5["5 Gateway + LB<br/>AWS LB Controller · real ALB"]
+    N6["6 DNS · anchor<br/>CoreDNS"]
+    N7["7 Secrets<br/>EKS envelope-encrypts at rest"]
+    N8["8 Autoscaling<br/>HPA + metrics-server · solid"]
+    N9["9 App + DB · anchor<br/>Node API + CNPG"]
+
+    style N1 fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N2 fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N3 fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N4 fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N5 fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N6 fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12
+    style N7 fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    style N8 fill:#d4f5d4,stroke:#1a7f37,color:#0a3d12
+    style N9 fill:#d4f5d4,stroke:#1a7f37,stroke-width:3px,color:#0a3d12

@@ -6,66 +6,87 @@ class:
   - lead
 ---
 
-<!-- _class: invert lead stage-interlude -->
-
 # Kubernetes
 
 Production-Grade Container Orchestration
 
-_Warning: high intensity learning environment._
+---
 
-![w:360 Welcome — let's get into it](https://media.giphy.com/media/3ornk57KwDXf81rjWM/giphy.gif)
+# Introduction to Teacher
 
-June 2-3, 2026
-
-<!-- ===== SEGMENT 01 · Interlude · Introduction ===== -->
+![welcome](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmFkYjRqZGM3M3Z3ejdkYWt5OWVjaDg1dW8xaTR1Z29sb3JrMHVwOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/QQkyLVLAbQRKU/giphy.gif)
 
 ---
 
-<!-- _class: invert lead stage-interlude divider -->
+## Erik Reinert aka "Blackglasses"
 
-# Introduction
-
-Segment 1 — Interlude
+- Senior software engineer
+- Content creator (@TheAltF4Stream)
+- Diagram & flowchart artist
+- Habitual problem solver
 
 ---
 
-<!-- _class: invert stage-interlude -->
+## Work Experience
 
-## One app, two days, three postures
+- Started with frontend (2+ years)
+- Followed curiosity to backend (2+ years)
+- Continued curiosity to fullstack (2+ years)
+- Found passion in DevOps & Platform Engineering (5+ years - current)
+
+---
+
+## I build things on the internet
+
+- Blog: https://altf4.blog
+- Github: https://github.com/ALT-F4-LLC
+- Twitch: https://www.twitch.tv/thealtf4stream
+- Twitter: https://www.x.com/thealtf4stream
+- YouTube: https://www.youtube.com/thealtf4stream
+- Vorpal: https://docs.vorpal.build
+
+---
+
+## Existing Courses
+
+- Introduction to DevOps for Developers
+- Enterprise Cloud Infrastructure
+- Introduction to Backend Architectures
+- Cloud Infrastructure: Startup to Scale
+- Cloud CI/CD with GitHub Actions
+
+---
+
+# Course Introduction
+
+![intro](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHNzOTVoMHdsYnQwMzhmaDZvdjB0YmZwZTJkNzhwemU0emZpZmNvdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3orif7aLUehOfdmlXy/giphy.gif)
+
+---
+
+## One app, two days, three scenarios
 
 - One Node/TypeScript API on Postgres
-- POC: a bare Pod, built the wrong way on purpose
+- Proof-of-Concept: a bare Pod, built the wrong way on purpose
 - Stable: declarative manifests you'd hand a teammate
 - Production: autoscaled GitOps on a real EKS cluster
 
 ---
 
-<!-- _class: invert stage-interlude -->
-
-## The shape of the two days
+## Shape of the two days
 
 ![h:470 Two-day day-shape: Foundations, POC, Stable on Day 1; Production and the EKS capstone on Day 2](img/diagrams/day-shape.svg)
 
 Same application, climbing one maturity stage at a time.
 
-<!-- ===== SEGMENT 02 · Foundations · Why Kubernetes: The Mental Model ===== -->
+---
+
+# Kubernetes: Mental Model
+
+> "Learn the loop."
 
 ---
 
-<!-- _class: invert lead stage-foundations divider -->
-
-# Why Kubernetes: The Mental Model
-
-Segment 2 — Foundations
-
-> "Learn the loop, and the rest is just nouns."
-
----
-
-<!-- _class: invert stage-foundations -->
-
-## The control loop is the whole idea
+## The "loop" is the whole idea
 
 - Desired state: what you declare you want
 - Actual state: what the cluster reads as real
@@ -74,17 +95,13 @@ Segment 2 — Foundations
 
 ---
 
-<!-- _class: invert stage-foundations -->
-
-## Cruise control is the control loop
+## Cruise control is a "loop"
 
 ![h:460 Cruise-control loop: set 65 mph desired, sense actual speed, adjust throttle, and hold 65 against a hill as self-healing](img/diagrams/seg02-cruise-control-loop.svg)
 
 You set the speed; the car does everything else to keep it.
 
 ---
-
-<!-- _class: invert stage-foundations -->
 
 ## The same loop, at cluster scale
 
@@ -778,11 +795,31 @@ Same resources, same app — what changes underneath is the controller, not the 
 
 <!-- _class: invert stage-interlude -->
 
-## The three builds, drawn
+## The three builds, drawn — Edge
 
-- **Edge:** the smallest cluster — closest to your laptop's `kind`; ephemeral storage, no HPA brick at all
-- **Self-hosted:** the you-own-everything build; every controller is one you installed yourself
-- **Cloud (EKS):** the sealed control-plane brick, the solid HPA — the only one Day 2 actually builds
+![h:480 Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, gateway, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/diagrams/lego-edge-cluster.svg)
+
+Closest to your laptop's `kind` — ephemeral storage, and no HPA brick at all.
+
+---
+
+<!-- _class: invert stage-interlude -->
+
+## The three builds, drawn — Self-hosted
+
+![h:480 Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, gateway, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/diagrams/lego-selfhosted-cluster.svg)
+
+Every controller behind a resource is one you installed yourself.
+
+---
+
+<!-- _class: invert stage-interlude -->
+
+## The three builds, drawn — Cloud (EKS)
+
+![h:480 Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, gateway, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/diagrams/lego-cloud-cluster.svg)
+
+The control plane seals shut and the HPA snaps in solid — the only one Day 2 actually builds.
 
 ---
 

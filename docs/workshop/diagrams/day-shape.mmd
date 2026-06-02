@@ -1,27 +1,21 @@
 flowchart TB
-    subgraph D1["DAY 1 — Foundations + POC + Stable (on kind)"]
+    subgraph D1["DAY 1"]
         direction LR
-        A1["1<br/>9:30<br/>Intro"]:::interlude
-        A2["2-3<br/>Foundations<br/>9:45-10:30"]:::found
-        A3["4-6<br/>POC stage<br/>10:30-12:00"]:::poc
-        A4["7<br/>12:00<br/>Lunch"]:::interlude
-        A5["8-14<br/>Stable stage<br/>12:45-4:15"]:::stable
-        A6["15<br/>4:15<br/>Day 1 Close"]:::interlude
-        A1 --> A2 --> A3 --> A4 --> A5 --> A6
+        A1["Foundations"]:::found
+        A2["Proof-of-Concept"]:::poc
+        A3["Stable"]:::stable
+        A1 --> A2 --> A3
     end
-    subgraph D2["DAY 2 — Production stage + EKS capstone"]
+    subgraph D2["DAY 2"]
         direction LR
-        B1["16<br/>9:30<br/>Kickoff"]:::interlude
-        B2["17-21<br/>Production on kind<br/>9:45-12:00"]:::production
-        B3["22<br/>12:00<br/>Lunch"]:::interlude
-        B4["23-31<br/>Secrets + EKS capstone<br/>12:45-4:15"]:::production
-        B5["32<br/>4:15<br/>Wrap-Up"]:::interlude
-        B1 --> B2 --> B3 --> B4 --> B5
+        B1["Production"]:::production
+        B2["AWS EKS"]:::eks
+        B1 --> B2
     end
     D1 --> D2
 
-    classDef interlude fill:#ddd,stroke:#666,color:#222
-    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
-    classDef poc fill:#cfe8ff,stroke:#1f6feb,color:#001f4d
-    classDef stable fill:#d4f5d4,stroke:#1a7f37,color:#0a3d12
-    classDef production fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00
+    classDef found fill:#ddd,stroke:#666,color:#222
+    classDef poc fill:#e6d7ff,stroke:#7a3ff2,color:#23004d
+    classDef stable fill:#cfe8ff,stroke:#1f6feb,color:#001f4d
+    classDef production fill:#d4f5d4,stroke:#1a7f37,color:#0a3d12
+    classDef eks fill:#ffd7b5,stroke:#bc4c00,color:#4d1d00

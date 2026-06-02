@@ -1310,15 +1310,15 @@ Do not read the matrix cell by cell. Point at it, then talk these five points �
 
 **The three builds, drawn.** Each illustration is the same nine-slot baseplate with the same brick positions; only the brick in each slot changes. The captions stand on their own if the images are not yet rendered.
 
-![Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, gateway, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/lego-edge-cluster.png)
+![Edge build: a LEGO baseplate with nine labeled slots representing one Kubernetes cluster built for an edge device. Control plane and worker-node bricks are small and fused together; the storage, networking, gateway, and secrets bricks are present but differently shaped; the DNS and application bricks are full-size and marked as anchors identical across all three builds; the autoscaling slot is an empty grey ghost brick indicating it is absent.](img/diagrams/lego-edge-cluster.svg)
 
 *Edge build: the same app on the smallest possible cluster — and the closest match to the `kind` cluster on your laptop. The control plane and nodes collapse toward one box, storage is ephemeral, and there is no HPA brick at all (no metrics-server to feed it).*
 
-![Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, gateway, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-selfhosted-cluster.png)
+![Self-hosted build: the same nine-slot LEGO baseplate built as a self-hosted Kubernetes cluster. Control plane, worker nodes, networking, storage, gateway, secrets, and autoscaling bricks are present but differently shaped to show controllers the operator installs themselves; DNS and application bricks are marked as anchors identical across all three builds.](img/diagrams/lego-selfhosted-cluster.svg)
 
 *Self-hosted build: the vanilla, you-own-everything cluster. Every controller behind a resource is one you installed yourself — control plane, nodes, networking, storage, and the rest are all a different form from the edge and cloud builds.*
 
-![Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, gateway, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/lego-cloud-cluster.png)
+![Cloud build (EKS): the same nine-slot LEGO baseplate built as a managed cloud Kubernetes cluster on EKS. The control plane is drawn as a sealed managed brick; worker-node, networking, storage, gateway, and secrets bricks are differently shaped and tinted to show cloud-provider controllers; the pod-level autoscaling (HPA) brick is full-size and solid; DNS and application bricks are marked as anchors identical across all three builds.](img/diagrams/lego-cloud-cluster.svg)
 
 *Cloud build (EKS): the control plane becomes a sealed brick you never open, and the HPA — pod-level autoscaling — is finally a solid brick. This is the only one of the three the workshop actually builds, on Day 2.*
 
