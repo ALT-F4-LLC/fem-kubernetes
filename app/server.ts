@@ -10,7 +10,7 @@ const DB_PASSWORD = process.env.DB_PASSWORD ?? "";
 const DB_CONNECTION_TIMEOUT_SECONDS = 3;
 const MAX_WORK = 3_000_000;
 
-const sql = new SQL({
+const SQL_OPTIONS = {
   adapter: "postgres",
   hostname: DB_HOST,
   port: DB_PORT,
@@ -19,7 +19,9 @@ const sql = new SQL({
   password: DB_PASSWORD,
   max: 4,
   connectionTimeout: DB_CONNECTION_TIMEOUT_SECONDS,
-});
+} as const;
+
+let sql = new SQL(SQL_OPTIONS);
 
 let healthy = true;
 
@@ -29,6 +31,13 @@ process.on("SIGUSR1", () => {
 });
 
 let schemaReady: Promise<void> | undefined;
+
+function rebuildClient(): void {
+  const old = sql;
+  sql = new SQL(SQL_OPTIONS);
+  schemaReady = undefined;
+  old.close({ timeout: 0 }).catch(() => {});
+}
 
 function ensureSchema(): Promise<void> {
   if (!schemaReady) {
@@ -83,6 +92,7 @@ async function handleCounter(req: Request): Promise<Response> {
     const count = rows[0].count;
     return Response.json({ count }, { headers: noStoreJsonHeaders });
   } catch {
+    rebuildClient();
     return Response.json(
       { error: "database unavailable" },
       { status: 503, headers: noStoreJsonHeaders },
