@@ -65,7 +65,7 @@ Production-Grade Container Orchestration
 
 ## One app, two days, three scenarios
 
-- One Node/TypeScript API on Postgres
+- Simple API (Bun/TypeScript) with a Database (Postgres)
 - Proof-of-concept: a bare Pod, built the wrong way on purpose
 - Stable: declarative manifests you'd hand a teammate
 - Production: autoscaled GitOps on a real EKS cluster
@@ -80,7 +80,7 @@ Same application, climbing one maturity stage at a time.
 
 ---
 
-# Kubernetes: Mental Model
+# Kubernetes Mental Model
 
 > "Learn the loop."
 
@@ -121,7 +121,7 @@ One brain reads the orders; the stations do the cooking.
 
 ![h:450 kind cluster today versus an EKS cloud cluster on Day 2: the same control plane, workers, storage, and Gateway, backed by different controllers per environment](img/diagrams/seg03-kind-vs-cloud.svg)
 
-The declaration stays; the location changes.
+The definition stays; the location changes.
 
 ---
 
@@ -153,7 +153,7 @@ Three nodes Ready: one head chef, two cook stations.
 
 ---
 
-# Kubernetes: Running an app
+# Running an app
 
 > "Two peas in a pod."
 
@@ -315,7 +315,7 @@ Stable is the list of fixes.
 
 ---
 
-# Kubernetes: Imperative to Declarative
+# Imperative to Declarative
 
 > "Imperative is for testing; declarative is for scaling."
 
