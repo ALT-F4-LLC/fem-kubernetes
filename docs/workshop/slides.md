@@ -95,6 +95,14 @@ Same application, climbing one maturity stage at a time.
 
 ---
 
+## The loop, drawn plainly
+
+![h:460 The control loop with no analogy: desired state and actual state feed reconciliation, which closes the gap back to desired - forever; a disturbance is driven back by the same self-healing edge](img/diagrams/seg02-loop-defined.svg)
+
+Desired, actual, reconcile - then again. This shape is every resource.
+
+---
+
 ## Cruise control is a "loop"
 
 ![h:460 Cruise-control loop: set 65 mph desired, sense actual speed, adjust throttle, and hold 65 against a hill as self-healing](img/diagrams/seg02-cruise-control-loop.svg)
@@ -117,6 +125,15 @@ One brain reads the orders; the stations do the cooking.
 
 ---
 
+## Kubernetes is a standard, not a place
+
+- One API for every environment - laptop, cloud, on-prem
+- You declare resources; each environment knows how to run them
+- A `kind` cluster today, a cloud cluster tomorrow - same manifests
+- That standard API is why the same declaration travels
+
+---
+
 ## Same resources, different environment
 
 ![h:450 kind cluster today versus an EKS cloud cluster on Day 2: the same control plane, workers, storage, and Gateway, backed by different controllers per environment](img/diagrams/seg03-kind-vs-cloud.svg)
@@ -125,17 +142,36 @@ The definition stays; the location changes.
 
 ---
 
+## The cluster config - one chef, two stations
+
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+  - role: worker
+  - role: worker
+```
+
+One control-plane, two workers; host port 30080 is mapped for the Gateway later.
+
+---
+
 ## Create the cluster - one chef, two stations
 
 ```bash
-$ kind create cluster --config kind-cluster.yaml
+$ kind create cluster --config manifests/day-one/kind-cluster.yaml
 Creating cluster "kind" ...
  ✓ Starting control-plane
  ✓ Joining worker nodes
 Set kubectl context to "kind-kind"
 ```
 
-`kind` runs each node as a container on your laptop.
+`kind` runs each node as a container on your laptop. Run every command from the repo root.
 
 ---
 
@@ -163,7 +199,7 @@ Three nodes Ready: one head chef, two cook stations.
 
 ```bash
 $ kubectl run sample-app \
-    --image=<registry>/<image>:<tag> --port=8080
+    --image=docker.io/altf4llc/fem-kubernetes:v1 --port=8080
 pod/sample-app created
 
 $ kubectl get pods
@@ -205,7 +241,7 @@ Bare `pods` have no controller - so they dissapear.
 
 ```bash
 $ kubectl create deployment sample-app \
-    --image=<registry>/<image>:<tag>
+    --image=docker.io/altf4llc/fem-kubernetes:v1
 deployment.apps/sample-app created
 ```
 
@@ -245,7 +281,8 @@ Change the desired count; the controller reconciles to it.
 $ kubectl create deployment postgres \
     --image=postgres:16
 $ kubectl set env deployment/postgres \
-    POSTGRES_PASSWORD=demo-not-a-real-password
+    POSTGRES_PASSWORD=demo-not-a-real-password \
+    POSTGRES_DB=appdb
 deployment.apps/postgres env updated
 ```
 
@@ -269,7 +306,7 @@ Pod IPs rotate; app finds Postgres by the name `postgres` instead.
 
 ---
 
-## The secret is wrong - say it out loud
+## The secret is handled wrong - say it out loud
 
 ```bash
 $ kubectl set env deployment/sample-app \
@@ -278,7 +315,7 @@ $ kubectl set env deployment/sample-app \
 deployment.apps/sample-app env updated
 ```
 
-Now in shell history and on this recording. Exactly how not to.
+The app connects fine - the password matches Postgres. It is the *method* that is wrong: the secret is now plaintext in shell history and on this recording. Exactly how not to.
 
 ---
 
@@ -288,12 +325,13 @@ Now in shell history and on this recording. Exactly how not to.
 $ kubectl expose deployment sample-app \
     --type=NodePort --port=8080 --name=sample-app
 
-$ curl localhost:8080/<data>      # {"count": 5}
+$ kubectl port-forward service/sample-app 8080:8080 &
+$ curl localhost:8080/counter     # {"count": 5}
 $ kubectl delete pod -l app=postgres
-$ curl localhost:8080/<data>      # {"count": 1}
+$ curl localhost:8080/counter     # {"count": 1}
 ```
 
-Counter reset to 1: no volume, no durability.
+NodePort is the crude front door; the port-forward is the reliable reach on `kind`. Counter reset to 1: no volume, no durability.
 
 ---
 
@@ -330,14 +368,64 @@ Stable is the list of fixes.
 
 ---
 
+## Every manifest has the same four fields
+
+```yaml
+apiVersion: apps/v1        # which API and version
+kind: Deployment           # what kind of resource
+metadata:                  # name, labels, namespace
+  name: sample-app
+spec:                      # the desired state of this object
+  replicas: 1
+```
+
+`apiVersion` + `kind` pick the type; `metadata` names it; `spec` is what you want.
+
+---
+
+## This is the deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  labels:
+    app: sample-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+    spec:
+      containers:
+        - name: sample-app
+          image: docker.io/altf4llc/fem-kubernetes:v1
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: postgres
+            - name: DB_PASSWORD
+              value: demo-not-a-real-password
+```
+
+The selector matches the template labels. Plaintext password, still - we fix that in Stable.
+
+---
+
 ## Apply is declarative; Diff shows the changes
 
 ```bash
-$ kubectl diff -f deployment.yaml
-$ kubectl apply -f deployment.yaml
+$ kubectl diff -f manifests/day-one/deployment.yaml
+$ kubectl apply -f manifests/day-one/deployment.yaml
 deployment.apps/sample-app created
 
-$ kubectl apply -f deployment.yaml
+$ kubectl apply -f manifests/day-one/deployment.yaml
 deployment.apps/sample-app unchanged
 ```
 
@@ -352,11 +440,31 @@ $ kubectl get deployments,services
 NAME                         READY   UP-TO-DATE   AVAILABLE
 deployment.apps/postgres     1/1     1            1
 deployment.apps/sample-app   1/1     1            1
-
-$ git commit -m "Declare app + Postgres as manifests"
 ```
 
 The selector must match the Pod's labels - write both by hand.
+
+---
+
+## The label and the selector must match
+
+```yaml
+template:
+  metadata:
+    labels:
+      app: sample-app      # the label stamped on the Pod
+spec:
+  selector:
+    app: sample-app        # the selector that finds it
+```
+
+```bash
+$ kubectl get pods -l app=sample-app
+NAME                         READY   STATUS    RESTARTS   AGE
+sample-app-7d9c4b5f8-9fk2p   1/1     Running   0          2m
+```
+
+Same `app: sample-app` on both sides - that match is the entire wiring.
 
 ---
 
@@ -417,13 +525,24 @@ The loop learned "the app works" is not "the process exists."
 
 ---
 
+## A namespace for the app
+
+```bash
+$ kubectl create namespace app
+namespace/app created
+```
+
+Everything from here lives in `app`, separate from cluster tooling. Add `-n app` from now on.
+
+---
+
 ## Secrets are base64-encoded, NOT encrypted
 
 ```bash
-$ kubectl create secret generic db-secret \
+$ kubectl create secret generic db-secret -n app \
     --from-literal=DB_PASSWORD=demo-not-a-real-password
 
-$ kubectl get secret db-secret \
+$ kubectl get secret db-secret -n app \
     -o jsonpath='{.data.DB_PASSWORD}' | base64 -d
 demo-not-a-real-password
 ```
@@ -445,10 +564,38 @@ Came straight back with a standard tool, no key. That's why it stays out of git.
 
 ---
 
+## Install the controller - three pinned steps
+
+```bash
+$ kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.6.3" | kubectl apply -f -
+$ kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.6.3/deploy/crds.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.6.3/deploy/nodeport/deploy.yaml
+```
+
+Gateway API CRDs, then NGF's CRDs, then the controller - it creates its own `nginx` GatewayClass.
+
+---
+
+## Pin the data plane to the mapped port
+
+```bash
+$ kubectl patch nginxproxy nginx-gateway-proxy-config -n nginx-gateway --type=merge \
+    -p '{"spec":{"kubernetes":{"service":{"nodePorts":[{"port":30080,"listenerPort":80}]}}}}'
+```
+
+NGF v2 provisions a data-plane Service per Gateway and auto-allocates its NodePort. Pin it to `30080` so the cluster's host-port-30080 mapping reaches it.
+
+---
+
 ## Write the listener and the routing
 
 ```bash
-$ cat gateway.yaml
+$ cat manifests/day-one/k8s/base/gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: sample-app
+  namespace: app
 spec:
   gatewayClassName: nginx
   listeners:
@@ -456,7 +603,8 @@ spec:
       protocol: HTTP
       port: 80
 
-$ kubectl apply -f gateway.yaml -f httproute.yaml
+$ kubectl apply -f manifests/day-one/k8s/base/gateway.yaml \
+    -f manifests/day-one/k8s/base/httproute.yaml
 ```
 
 `gatewayClassName: nginx` is the only line EKS changes.
@@ -466,12 +614,12 @@ $ kubectl apply -f gateway.yaml -f httproute.yaml
 ## The controller wired it up
 
 ```bash
-$ kubectl get gateway
+$ kubectl get gateway -n app
 NAME         CLASS   ADDRESS     PROGRAMMED   AGE
 sample-app   nginx   localhost   True         20s
 
 $ curl -H "Host: sample-app.local" \
-    http://localhost/healthz
+    http://localhost:30080/healthz
 ok
 ```
 
@@ -495,7 +643,8 @@ Same Gateway and HTTPRoute on EKS - a different controller fulfills them.
 ## Install the operator - no database yet
 
 ```bash
-$ kubectl apply --server-side -f <cnpg-release>.yaml
+$ kubectl apply --server-side -f \
+    https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v1.29.1/cnpg-1.29.1.yaml
 
 $ kubectl get crds | grep cnpg
 clusters.postgresql.cnpg.io
@@ -526,14 +675,23 @@ The kind exists; nothing has declared one.
 ## A few lines of YAML become durable Postgres
 
 ```bash
-$ cat postgres-cluster.yaml
+$ cat manifests/day-one/k8s/base/postgres-cluster.yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+  namespace: app
 spec:
   instances: 1
   storage:
     size: 1Gi
     storageClass: standard
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: appuser
 
-$ kubectl get cluster postgres
+$ kubectl get cluster postgres -n app
 NAME       READY   STATUS                     PRIMARY
 postgres   1       Cluster in healthy state   postgres-1
 ```
@@ -545,11 +703,11 @@ StatefulSet's worth of configs - managed for you.
 ## Restart the Pod - the data survives
 
 ```bash
-$ curl .../<data>            # {"count": 1}
-$ kubectl delete pod postgres-1
+$ curl -H "Host: sample-app.local" http://localhost:30080/counter   # {"count": 1}
+$ kubectl delete pod postgres-1 -n app
 pod "postgres-1" deleted
 
-$ curl .../<data>            # {"count": 2}
+$ curl -H "Host: sample-app.local" http://localhost:30080/counter   # {"count": 2}
 ```
 
 The count continued. POC reset to 1 - the PVC outlives the Pod.
@@ -571,7 +729,10 @@ No human authored the database password.
 ## A base collects manifests into one unit
 
 ```bash
-$ cat k8s/base/kustomization.yaml
+$ cat manifests/day-one/k8s/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: app
 resources:
   - deployment.yaml
   - service.yaml
@@ -580,7 +741,7 @@ resources:
   - httproute.yaml
   - postgres-cluster.yaml
 
-$ kubectl apply -k k8s/base
+$ kubectl apply -k manifests/day-one/k8s/base
 ```
 
 `kubectl apply -k` is built into kubectl. Base only - overlays are Production.
@@ -624,6 +785,14 @@ Imperative POC to declarative Stable - all on one `kind` cluster.
 ![recap](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTduYnFyd2hiamh6eDllNXZodDVibzR3NnFjcmhjN3c2aDNrYm1mYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/sBLcw5Ic4QUTK/giphy.gif)
 
 Leave the cluster as-is, or check out the `stable` branch tomorrow.
+
+---
+
+## The shape, before we close
+
+![h:430 Two-day day-shape: Foundations, POC, and Stable behind us on Day 1; Production hardening and the EKS capstone ahead on Day 2](img/diagrams/day-shape.svg)
+
+Refresh the whole climb - then look at what Day 2 adds.
 
 ---
 

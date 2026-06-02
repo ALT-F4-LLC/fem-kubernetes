@@ -13,7 +13,7 @@ This is the **Stable** stage of the workshop — OUTLINE segments 8-14, the Day-
 >
 > **Stage design choices that bind Stable (enforce these):**
 > - **Declarative hinge (segment 8).** Every imperative command from the POC morning is rewritten as a manifest committed to git, applied with `kubectl apply` and inspected with `kubectl diff`. Labels and selectors are hand-written. The line to say out loud: imperative commands are how you *explore*; manifests are how you *operate*.
-> - **The secret moves into a Secret — created imperatively, not committed (segment 10).** The Postgres password leaves the inline env var and becomes a `Secret` created with `kubectl create secret`, which is **not** committed to git. Mandatory talking point: a Kubernetes Secret is **base64-encoded, not encrypted**. Namespaces arrive here as the boundary between the app and cluster tooling; this is where the `<app-namespace>` placeholder is introduced. Use an obviously-fake demo value (`demo-not-a-real-password`); never type a real-looking secret.
+> - **The secret moves into a Secret — created imperatively, not committed (segment 10).** The Postgres password leaves the inline env var and becomes a `Secret` created with `kubectl create secret`, which is **not** committed to git. Mandatory talking point: a Kubernetes Secret is **base64-encoded, not encrypted**. Namespaces arrive here as the boundary between the app and cluster tooling; this is where the `app` namespace is introduced. Use an obviously-fake demo value (`demo-not-a-real-password`); never type a real-looking secret.
 > - **Durable Postgres is a CloudNativePG `Cluster`, never a hand-written StatefulSet (segment 13).** You declare a CNPG `Cluster` custom resource — you do **not** hand-write a `StatefulSet`, headless Service, and PVC. Mandatory talking point: CNPG manages Pods and PVCs much as a hand-written StatefulSet would, plus failover and backup. The secrets thread continues: CNPG generates and owns the credentials in its auto-created `-app` Secret, and the hand-rolled segment-10 Secret is retired.
 > - **Kustomize is base only (segment 14).** You introduce a Kustomize *base* at `k8s/base/` — a `kustomization.yaml` over the Stable manifests, applied with `kubectl apply -k k8s/base`. Do **not** preview overlays; the `overlays/kind` and `overlays/eks` overlays are Production (segment 27). Segment 14 carries the end-of-Stable recap.
 >
@@ -82,7 +82,7 @@ spec:
     spec:
       containers:
         - name: sample-app
-          image: <registry>/<image>:<tag>
+          image: docker.io/altf4llc/fem-kubernetes:v1
           ports:
             - containerPort: 8080
           env:
@@ -277,7 +277,7 @@ spec:
     spec:
       containers:
         - name: sample-app
-          image: <registry>/<image>:<tag>
+          image: docker.io/altf4llc/fem-kubernetes:v1
           ports:
             - containerPort: 8080
           env:
@@ -413,7 +413,7 @@ The app now tells Kubernetes the truth about its health and lives inside resourc
 
 ### Goal
 
-Move configuration out of inline environment variables. The non-sensitive database connection details become a `ConfigMap`; the database password becomes a `Secret` created imperatively with `kubectl create secret` and deliberately **not** committed to git. Introduce namespaces as the boundary that separates the app's resources from cluster tooling, establishing the `<app-namespace>` the rest of Stable uses. This is the second beat of the secrets thread: the password leaves the manifest, but the Secret it moves into is base64-encoded, not encrypted — and it exists only in the cluster, which is a new gap to name.
+Move configuration out of inline environment variables. The non-sensitive database connection details become a `ConfigMap`; the database password becomes a `Secret` created imperatively with `kubectl create secret` and deliberately **not** committed to git. Introduce namespaces as the boundary that separates the app's resources from cluster tooling, establishing the `app` namespace the rest of Stable uses. This is the second beat of the secrets thread: the password leaves the manifest, but the Secret it moves into is base64-encoded, not encrypted — and it exists only in the cluster, which is a new gap to name.
 
 ### Talking points
 
@@ -421,19 +421,19 @@ Move configuration out of inline environment variables. The non-sensitive databa
 - **Inline in the Deployment, the password is readable by anyone who can read the Deployment.** The plaintext `POSTGRES_PASSWORD`/`DB_PASSWORD` value from segments 8-9 sits in the Deployment's `env`, so `kubectl get deploy -o yaml` (or anything with read access to the Deployment) prints it in the clear — separate from the git problem. Moving it into a Secret narrows who needs read access to the password from "everyone who can see the Deployment" to "whoever can read the Secret," which RBAC can scope independently. That is the reason this segment pulls it out, base64 caveat and all.
 - **A Kubernetes Secret is base64-encoded, NOT encrypted.** Say this plainly and prove it: anyone who can read the Secret can decode the value with `base64 -d`. base64 is an encoding, not a cipher — it is there so binary values survive transport, not to protect anything. This is the load-bearing talking point of the segment.
 - **So we create the Secret imperatively and keep it out of git.** Because base64 is not encryption, committing a Secret manifest to git would be committing the password in plain sight. We create it with `kubectl create secret` — it lives only in the cluster — and we do not write a manifest for it. The new gap, name it out loud: the "declarative" setup is now incomplete, because one piece of state (the Secret) exists only in the cluster and not in git. Production's Sealed Secrets closes that gap; CNPG in segment 13 removes this hand-rolled Secret entirely.
-- **Namespaces are the app/tooling boundary.** A namespace scopes names and groups resources. The app's resources move into a dedicated namespace (`<app-namespace>`), separate from the `kube-system` and operator tooling that will arrive in segments 11-13. This is the boundary that keeps "my app" and "the platform" from colliding.
+- **Namespaces are the app/tooling boundary.** A namespace scopes names and groups resources. The app's resources move into a dedicated namespace (`app`), separate from the `kube-system` and operator tooling that will arrive in segments 11-13. This is the boundary that keeps "my app" and "the platform" from colliding.
 - **The discipline is yours, not the tooling's.** Nothing in the repo automatically blocks a plaintext Secret manifest from being committed — `kubectl create secret` keeps the value out of git only because *you* never write a manifest for it and never `git add` one. Name that this is a habit, not a guardrail. If you want a belt-and-suspenders, the instructor can add a narrow pre-flight `.gitignore` entry that ignores the specific filename they'd use for a hand-written Secret (not a broad `*secret*` glob — that would also ignore the Sealed Secret manifests Production *must* commit). State plainly: absent that, a plaintext Secret is fully committable, so the discipline is what protects the password.
 
 ### Live build
 
-Create the namespace that will hold the app's resources. Everything from here lives in `<app-namespace>` rather than `default`.
+Create the namespace that will hold the app's resources. Everything from here lives in `app` rather than `default`.
 
 ```bash
-kubectl create namespace <app-namespace>
+kubectl create namespace app
 ```
 
 ```text
-namespace/<app-namespace> created
+namespace/app created
 ```
 
 Move the non-secret database connection details into a ConfigMap. These are the values it is fine to commit — host, port, database name — so this one *is* a manifest headed for git.
@@ -444,7 +444,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: db-config
-  namespace: <app-namespace>
+  namespace: app
 data:
   DB_HOST: postgres
   DB_PORT: "5432"
@@ -461,7 +461,7 @@ Create the password as a Secret **imperatively** — this is the deliberate choi
 
 ```bash
 kubectl create secret generic db-secret \
-  --namespace=<app-namespace> \
+  --namespace=app \
   --from-literal=DB_PASSWORD=demo-not-a-real-password
 ```
 
@@ -472,7 +472,7 @@ secret/db-secret created
 Now prove the talking point: base64 is not encryption. Pull the stored value back out and decode it — anyone with read access sees the password.
 
 ```bash
-kubectl get secret db-secret -n <app-namespace> -o jsonpath='{.data.DB_PASSWORD}' | base64 -d
+kubectl get secret db-secret -n app -o jsonpath='{.data.DB_PASSWORD}' | base64 -d
 ```
 
 ```text
@@ -481,7 +481,7 @@ demo-not-a-real-password
 
 Let that land: the value came straight back out with a standard tool, no key required. That is exactly why this Secret is not committed to git, and why Production seals it.
 
-Update the app Deployment to read configuration from the ConfigMap and the Secret instead of inline env values, and to live in `<app-namespace>`. Use `envFrom`/`valueFrom` so the values flow from the new sources.
+Update the app Deployment to read configuration from the ConfigMap and the Secret instead of inline env values, and to live in `app`. Use `envFrom`/`valueFrom` so the values flow from the new sources.
 
 ```bash
 cat > deployment.yaml <<'EOF'
@@ -489,7 +489,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
   labels:
     app: sample-app
 spec:
@@ -504,7 +504,7 @@ spec:
     spec:
       containers:
         - name: sample-app
-          image: <registry>/<image>:<tag>
+          image: docker.io/altf4llc/fem-kubernetes:v1
           ports:
             - containerPort: 8080
           envFrom:
@@ -542,7 +542,7 @@ spec:
 EOF
 ```
 
-Before applying into `<app-namespace>`, tear down the segment 8/9 stack still running in `default`. Those Deployments and Services were created there, and applying into a new namespace does not move them — left alone they would be an orphaned duplicate, which breaks the clean-slate discipline. Delete them so `<app-namespace>` is the only place the app runs.
+Before applying into `app`, tear down the segment 8/9 stack still running in `default`. Those Deployments and Services were created there, and applying into a new namespace does not move them — left alone they would be an orphaned duplicate, which breaks the clean-slate discipline. Delete them so `app` is the only place the app runs.
 
 ```bash
 kubectl delete -n default deployment sample-app postgres
@@ -556,10 +556,10 @@ service "sample-app" deleted
 service "postgres" deleted
 ```
 
-Now apply the app and the Postgres Deployment into the new namespace, and the Services there too. Because nothing of the app exists in `<app-namespace>` yet, all four resources are created fresh. Confirm the app reads its config from the ConfigMap and Secret with no inline password anywhere in the manifest.
+Now apply the app and the Postgres Deployment into the new namespace, and the Services there too. Because nothing of the app exists in `app` yet, all four resources are created fresh. Confirm the app reads its config from the ConfigMap and Secret with no inline password anywhere in the manifest.
 
 ```bash
-kubectl apply -n <app-namespace> -f deployment.yaml -f postgres.yaml -f service.yaml
+kubectl apply -n app -f deployment.yaml -f postgres.yaml -f service.yaml
 ```
 
 ```text
@@ -572,7 +572,7 @@ service/sample-app created
 Confirm the app Pod comes up reading its new configuration sources.
 
 ```bash
-kubectl get pods -n <app-namespace>
+kubectl get pods -n app
 ```
 
 ```text
@@ -595,8 +595,8 @@ git commit -m "Move config to ConfigMap, password to imperative Secret"
 
 ### Watch for
 
-- **App `CrashLoopBackOff` with a missing-password error.** The `secretKeyRef` name or key does not match the Secret you created. Confirm the Secret exists in the right namespace (`kubectl get secret db-secret -n <app-namespace>`) and that the `key` in the Deployment matches the `--from-literal` key (`DB_PASSWORD`).
-- **`namespaces "<app-namespace>" not found`** on apply. The manifests carry a namespace that does not exist yet, or you forgot `-n`. Create the namespace first; the namespace in the manifest `metadata` and any `-n` flag must agree.
+- **App `CrashLoopBackOff` with a missing-password error.** The `secretKeyRef` name or key does not match the Secret you created. Confirm the Secret exists in the right namespace (`kubectl get secret db-secret -n app`) and that the `key` in the Deployment matches the `--from-literal` key (`DB_PASSWORD`).
+- **`namespaces "app" not found`** on apply. The manifests carry a namespace that does not exist yet, or you forgot `-n`. Create the namespace first; the namespace in the manifest `metadata` and any `-n` flag must agree.
 - **A student notices the Secret isn't in git and asks if that's a mistake.** It is the lesson, not a mistake — say so. The Secret is intentionally out of git because base64 is not encryption; the gap that creates is exactly what Production's Sealed Secrets closes.
 
 ### Anticipated questions
@@ -632,12 +632,12 @@ Replace the POC NodePort with a real front door. Install NGINX Gateway Fabric on
 
 ### Live build
 
-Install NGINX Gateway Fabric in three steps: the Gateway API standard-channel CRDs (the route's API types), NGF's own CRDs, then the controller in its NodePort variant for `kind`. This is the environment-specific piece — the controller that will fulfill the `Gateway` and `HTTPRoute` we write next. The version refs below are illustrative; apply the specific version you pinned in pre-flight rather than a moving ref.
+Install NGINX Gateway Fabric in three steps: the Gateway API standard-channel CRDs (the route's API types), NGF's own CRDs, then the controller in its NodePort variant for `kind`. This is the environment-specific piece — the controller that will fulfill the `Gateway` and `HTTPRoute` we write next. The refs below are pinned to `v2.6.3`, the version pinned in pre-flight; if it has moved by the day, apply the exact release tag from the pre-flight checklist rather than a moving ref.
 
 ```bash
-kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=vX.Y.Z" | kubectl apply -f -
-kubectl apply --server-side -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/vX.Y.Z/deploy/crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/vX.Y.Z/deploy/nodeport/deploy.yaml
+kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.6.3" | kubectl apply -f -
+kubectl apply --server-side -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.6.3/deploy/crds.yaml
+kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/v2.6.3/deploy/nodeport/deploy.yaml
 ```
 
 ```text
@@ -664,6 +664,16 @@ kubectl wait --namespace nginx-gateway \
 deployment.apps/nginx-gateway condition met
 ```
 
+Pin the data plane to the mapped node port. NGF v2 provisions a data-plane Service per `Gateway` and auto-allocates its NodePort, so patch the `nginxproxy` config to pin that NodePort to `30080` — the port `kind`'s host-port mapping forwards from `localhost`. Without this, the auto-allocated port will not match the cluster's `extraPortMappings` and `curl` to `localhost:30080` will not reach the controller.
+
+```bash
+kubectl patch nginxproxy nginx-gateway-proxy-config -n nginx-gateway --type=merge -p '{"spec":{"kubernetes":{"service":{"nodePorts":[{"port":30080,"listenerPort":80}]}}}}'
+```
+
+```text
+nginxproxy.gateway.nginx.org/nginx-gateway-proxy-config patched
+```
+
 Turn the app's Service from a `NodePort` into a plain `ClusterIP` — the `Gateway` fronts it now, so it no longer needs to be reachable directly from the host. Set `type: ClusterIP` **explicitly**: `kubectl apply` reconciles fields you declare, and omitting `type` would leave the live Service's existing `type: NodePort` in place rather than flipping it. Spell it out so the NodePort is actually retired.
 
 ```bash
@@ -672,7 +682,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: <app-namespace>
+  namespace: app
 spec:
   type: ClusterIP
   selector:
@@ -685,7 +695,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
 spec:
   type: ClusterIP
   selector:
@@ -705,7 +715,7 @@ service/sample-app configured
 The `sample-app` Service is now `ClusterIP` — confirm the node port is gone and nothing is reachable on the host directly anymore.
 
 ```bash
-kubectl get service sample-app -n <app-namespace>
+kubectl get service sample-app -n app
 ```
 
 ```text
@@ -721,7 +731,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
 spec:
   gatewayClassName: nginx
   listeners:
@@ -744,7 +754,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
 spec:
   parentRefs:
     - name: sample-app
@@ -769,7 +779,7 @@ httproute.gateway.networking.k8s.io/sample-app created
 Confirm the `Gateway` has an address and is `PROGRAMMED` — the controller has wired it up.
 
 ```bash
-kubectl get gateway -n <app-namespace>
+kubectl get gateway -n app
 ```
 
 ```text
@@ -780,7 +790,7 @@ sample-app   nginx   localhost   True         20s
 Reach the app through the `Gateway` instead of a node port. NGF's NodePort data plane is reached through `kind`'s host port-mapping, so requests to `localhost` route through the controller to the app's Service — the `HTTPRoute`'s `sample-app.local` host rule still selects the route, sent as a `Host` header.
 
 ```bash
-curl -H "Host: sample-app.local" http://localhost/healthz
+curl -H "Host: sample-app.local" http://localhost:30080/healthz
 ```
 
 ```text
@@ -801,9 +811,9 @@ git commit -m "Replace NodePort with NGINX Gateway Fabric, a Gateway, and an HTT
 
 ### Watch for
 
-- **The `Gateway` is not `PROGRAMMED` or the `HTTPRoute` is not `Accepted`.** Check the status conditions directly: `kubectl get gateway sample-app -n <app-namespace> -o "jsonpath={.status.conditions}"` should show `Programmed=True`, and `kubectl get httproute sample-app -n <app-namespace> -o "jsonpath={.status.parents}"` should show `Accepted=True`. A `Gateway` stuck without `Programmed` usually means the controller is not running yet (`kubectl get pods -n nginx-gateway`); an `HTTPRoute` not `Accepted` usually means its `parentRefs` name does not match a `Gateway` in the same namespace.
+- **The `Gateway` is not `PROGRAMMED` or the `HTTPRoute` is not `Accepted`.** Check the status conditions directly: `kubectl get gateway sample-app -n app -o "jsonpath={.status.conditions}"` should show `Programmed=True`, and `kubectl get httproute sample-app -n app -o "jsonpath={.status.parents}"` should show `Accepted=True`. A `Gateway` stuck without `Programmed` usually means the controller is not running yet (`kubectl get pods -n nginx-gateway`); an `HTTPRoute` not `Accepted` usually means its `parentRefs` name does not match a `Gateway` in the same namespace.
 - **`gatewayClassName` mismatch.** If the `Gateway` never gets an address, its `gatewayClassName` may not match an installed `GatewayClass`. `kubectl get gatewayclass` shows what is installed (`nginx` for NGF); the `Gateway`'s `gatewayClassName` must match one of them.
-- **`404` or connection refused through the `Gateway`.** Either the `Host` header does not match the `HTTPRoute` `hostnames` rule, or the backend Service name/port is wrong. Send the exact `Host` the rule expects and check `kubectl get endpoints sample-app -n <app-namespace>` lists the app Pod.
+- **`404` or connection refused through the `Gateway`.** Either the `Host` header does not match the `HTTPRoute` `hostnames` rule, or the backend Service name/port is wrong. Send the exact `Host` the rule expects and check `kubectl get endpoints sample-app -n app` lists the app Pod.
 - **NGF NodePort not reachable on `kind`.** If the controller is `PROGRAMMED` but `curl` to `localhost` still refuses, the node port the NGF data plane listens on may not be one `kind`'s `extraPortMappings` forwards from host :80. This is the cross-environment wiring the NodePort manifest depends on; verify the `kind` cluster config maps the host port to the NodePort the manifest uses, and adjust the cluster config if needed.
 - **The published manifest refs change.** Pinning to a moving ref can drift; if any of the three apply steps fails, fall back to the exact NGF release tag you pinned in pre-flight from its releases page rather than debugging a moving target on stage.
 
@@ -831,10 +841,10 @@ Teach the operator pattern as a concept *before* using it. Install the CloudNati
 
 ### Live build
 
-Install the CloudNativePG operator from its published manifest. This registers the CRDs and starts the operator's control loop — but creates no database. The URL below is illustrative; apply the specific operator version you pinned in pre-flight rather than a moving branch ref.
+Install the CloudNativePG operator from its published manifest. This registers the CRDs and starts the operator's control loop — but creates no database. The URL below is the pinned `v1.29.1` release, not a moving branch ref; if it has moved by the day, apply the exact release pinned in pre-flight.
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/releases/cnpg-1.24.0.yaml
+kubectl apply --server-side -f https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v1.29.1/cnpg-1.29.1.yaml
 ```
 
 ```text
@@ -906,7 +916,7 @@ Replace the ephemeral Postgres Deployment with a durable, operator-managed datab
 - **You declare a `Cluster`; the operator does the rest.** A CNPG `Cluster` custom resource is a few lines of YAML — instance count, storage size, StorageClass. The operator reads it and provisions the Pods, the PVCs, the Services, and the credentials. This is the operator pattern from segment 12 doing real work.
 - **CNPG manages Pods and PVCs much as a hand-written StatefulSet would, plus failover and backup.** This is the load-bearing talking point. Under the hood, durable Postgres needs stable Pod identity and per-Pod persistent storage — exactly what a `StatefulSet` provides. CNPG does that *and* adds automated failover, backups, and rolling upgrades. Students leave knowing the StatefulSet primitive exists and what the operator buys on top of it — the operator is not a black box hiding a mystery, it is a StatefulSet's worth of machinery plus the operational extras.
 - **CNPG generates and owns the credentials.** When the operator creates the `Cluster`, it generates the database credentials and stores them in an auto-created `-app` Secret. No human authored this password; it is random per cluster. The hand-rolled Secret from segment 10 is no longer needed — the app references the CNPG `-app` Secret instead. By end of Day 1, no human has authored the production database password and nothing secret is in git.
-- **The app talks to the `-rw` Service.** CNPG creates a `-rw` (read-write, points at the primary) and a `-ro` (read-only) Service. The app connects to `<cluster-name>-rw`. The Postgres Deployment and its Service from POC/segment-8 are retired.
+- **The app talks to the `-rw` Service.** CNPG creates a `-rw` (read-write, points at the primary) and a `-ro` (read-only) Service, each named for the cluster. The cluster is named `postgres`, so the app connects to `postgres-rw`. The Postgres Deployment and its Service from POC/segment-8 are retired.
 - **Durability is the whole point.** POC's Postgres lost its data on every Pod restart because it had no volume. CNPG binds a PVC through a StorageClass, so the data outlives the Pod. We are about to prove it the same way POC disproved it — restart the Pod and check the data.
 
 ### Live build
@@ -914,8 +924,8 @@ Replace the ephemeral Postgres Deployment with a durable, operator-managed datab
 Delete the ephemeral Postgres Deployment and its Service — the CNPG `Cluster` replaces both.
 
 ```bash
-kubectl delete -n <app-namespace> deployment postgres
-kubectl delete -n <app-namespace> service postgres
+kubectl delete -n app deployment postgres
+kubectl delete -n app service postgres
 ```
 
 ```text
@@ -932,7 +942,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
 spec:
   selector:
     app: sample-app
@@ -950,7 +960,7 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: postgres
-  namespace: <app-namespace>
+  namespace: app
 spec:
   instances: 1
   storage:
@@ -971,7 +981,7 @@ cluster.postgresql.cnpg.io/postgres created
 Watch the operator provision the database. The `Cluster` reports its phase as it comes up; wait for it to reach a healthy, ready state.
 
 ```bash
-kubectl get cluster postgres -n <app-namespace>
+kubectl get cluster postgres -n app
 ```
 
 ```text
@@ -982,7 +992,7 @@ postgres   60s   1           1       Cluster in healthy state   postgres-1
 Show what the operator created on your behalf — Pods and a PVC, exactly what a StatefulSet would have managed, plus the `-rw`/`-ro` Services and the `-app` Secret. Name them out loud as you point: this is the StatefulSet-equivalent the talking point described.
 
 ```bash
-kubectl get pods,pvc,svc,secret -n <app-namespace> -l cnpg.io/cluster=postgres
+kubectl get pods,pvc,svc,secret -n app -l cnpg.io/cluster=postgres
 ```
 
 ```text
@@ -1008,7 +1018,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
   labels:
     app: sample-app
 spec:
@@ -1023,7 +1033,7 @@ spec:
     spec:
       containers:
         - name: sample-app
-          image: <registry>/<image>:<tag>
+          image: docker.io/altf4llc/fem-kubernetes:v1
           ports:
             - containerPort: 8080
           envFrom:
@@ -1076,7 +1086,7 @@ deployment.apps/sample-app configured
 Retire the now-unused hand-rolled Secret from segment 10 — CNPG owns the credentials now.
 
 ```bash
-kubectl delete secret db-secret -n <app-namespace>
+kubectl delete secret db-secret -n app
 ```
 
 ```text
@@ -1086,7 +1096,7 @@ secret "db-secret" deleted
 Now prove durability — the exact test POC failed. Write a row through the data endpoint, then restart the database Pod and check the data survives. Hit the data endpoint once to establish a count.
 
 ```bash
-curl -H "Host: sample-app.local" http://localhost/<the data endpoint>
+curl -H "Host: sample-app.local" http://localhost:30080/counter
 ```
 
 ```text
@@ -1096,7 +1106,7 @@ curl -H "Host: sample-app.local" http://localhost/<the data endpoint>
 Delete the Postgres Pod. The operator reschedules it against the same PVC — the storage outlives the Pod.
 
 ```bash
-kubectl delete pod postgres-1 -n <app-namespace>
+kubectl delete pod postgres-1 -n app
 ```
 
 ```text
@@ -1106,7 +1116,7 @@ pod "postgres-1" deleted
 Once the replacement Pod is `Running`, hit the data endpoint again. The count continued instead of resetting — the data survived the restart, because it lives on the PVC, not in the Pod.
 
 ```bash
-curl -H "Host: sample-app.local" http://localhost/<the data endpoint>
+curl -H "Host: sample-app.local" http://localhost:30080/counter
 ```
 
 ```text
@@ -1127,9 +1137,9 @@ git commit -m "Replace ephemeral Postgres with durable CloudNativePG Cluster"
 
 ### Watch for
 
-- **The `Cluster` is stuck not-ready.** Usually no default StorageClass, or the named StorageClass does not exist. `kubectl get storageclass` shows what is available (`kind` ships `standard` via the local-path provisioner); the `Cluster` `spec.storage.storageClass` must match one of them. `kubectl describe cluster postgres -n <app-namespace>` names the provisioning failure.
-- **The app can't connect after switching to CNPG.** The `-rw` Service name is `<cluster-name>-rw` — confirm `DB_HOST` is `postgres-rw`, and that the `secretKeyRef` keys match what CNPG put in the `-app` Secret (`username` and `password`). `kubectl get secret postgres-app -n <app-namespace> -o jsonpath='{.data}'` shows the keys present.
-- **The data didn't survive the restart.** Confirm you deleted the *Pod*, not the `Cluster` or the PVC — the PVC must stay `Bound` across the restart. `kubectl get pvc -n <app-namespace>` should show the same PVC bound before and after.
+- **The `Cluster` is stuck not-ready.** Usually no default StorageClass, or the named StorageClass does not exist. `kubectl get storageclass` shows what is available (`kind` ships `standard` via the local-path provisioner); the `Cluster` `spec.storage.storageClass` must match one of them. `kubectl describe cluster postgres -n app` names the provisioning failure.
+- **The app can't connect after switching to CNPG.** The `-rw` Service name is the cluster name plus `-rw`, so for the `postgres` cluster it is `postgres-rw` — confirm `DB_HOST` is `postgres-rw`, and that the `secretKeyRef` keys match what CNPG put in the `-app` Secret (`username` and `password`). `kubectl get secret postgres-app -n app -o jsonpath='{.data}'` shows the keys present.
+- **The data didn't survive the restart.** Confirm you deleted the *Pod*, not the `Cluster` or the PVC — the PVC must stay `Bound` across the restart. `kubectl get pvc -n app` should show the same PVC bound before and after.
 
 ### Anticipated questions
 
@@ -1169,7 +1179,7 @@ git mv deployment.yaml service.yaml configmap.yaml gateway.yaml httproute.yaml p
 cat > k8s/base/kustomization.yaml <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: <app-namespace>
+namespace: app
 resources:
   - deployment.yaml
   - service.yaml
@@ -1191,13 +1201,13 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: db-config
-  namespace: <app-namespace>
+  namespace: app
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sample-app
-  namespace: <app-namespace>
+  namespace: app
 ...
 ```
 

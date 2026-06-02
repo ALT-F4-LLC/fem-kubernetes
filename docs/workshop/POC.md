@@ -44,10 +44,10 @@ Get the very first thing onto the cluster Foundations just built. You run the sa
 
 ### Live build
 
-Run the sample app as a single bare Pod. The image is the published sample-app image from the pre-flight checklist; substitute the real registry, image, and pinned tag.
+Run the sample app as a single bare Pod. The image is the published sample-app image from the pre-flight checklist, pinned to `:v1`.
 
 ```bash
-kubectl run sample-app --image=<registry>/<image>:<tag> --port=8080
+kubectl run sample-app --image=docker.io/altf4llc/fem-kubernetes:v1 --port=8080
 ```
 
 ```
@@ -79,7 +79,7 @@ Status:       Running
 IP:           10.244.1.7
 Containers:
   sample-app:
-    Image:          <registry>/<image>:<tag>
+    Image:          docker.io/altf4llc/fem-kubernetes:v1
     Port:           8080/TCP
     State:          Running
 Events:
@@ -136,7 +136,7 @@ Let that sit for a beat. The app you were just shelled into is simply gone, and 
 
 ### Watch for
 
-- **Image won't pull** (`ErrImagePull` / `ImagePullBackOff` in `get pods`). The registry, image, or tag is wrong, or the image is private. This is exactly the pre-flight checklist item about a public, pinned image — if it bites here, do not debug the registry live; point students at the pre-flight checklist and the `poc` branch and move on.
+- **Image won't pull** (`ErrImagePull` / `ImagePullBackOff` in `get pods`). The registry, image, or tag is wrong, or the image is private. This is exactly the pre-flight checklist item about a public, pinned image — if it bites here, do not debug the registry live; point students at the pre-flight checklist and the committed manifests at `manifests/day-one/` and move on.
 - **`exec` fails with "cannot exec in a container that has terminated"** — the Pod crashed after starting. Check `kubectl logs sample-app` (or `kubectl logs sample-app --previous`) for the crash, and `describe` for the restart count and reason.
 - **A student asks "where did it go?"** — that *is* the lesson. Resist the urge to recreate it to make them feel better; the absence is the motivation for segment 5.
 
@@ -178,7 +178,7 @@ Replace the disposable bare Pod with a **Deployment** — a controller that cont
 Recreate the app, this time as a Deployment instead of a bare Pod. The Deployment is the thing that will watch the Pod for us.
 
 ```bash
-kubectl create deployment sample-app --image=<registry>/<image>:<tag>
+kubectl create deployment sample-app --image=docker.io/altf4llc/fem-kubernetes:v1
 ```
 
 ```
@@ -267,10 +267,10 @@ kubectl create deployment postgres --image=postgres:16
 deployment.apps/postgres created
 ```
 
-The Postgres image refuses to start without a password configured, so set it via `kubectl set env`. (We are deferring the "this is a bad way to handle a secret" conversation to segment 6 on purpose — flag it and move on.)
+The Postgres image refuses to start without a password configured, so set it via `kubectl set env` — along with `POSTGRES_DB=appdb`, the database the app expects to connect to (without it the app can't reach its database and returns 503s). (We are deferring the "this is a bad way to handle a secret" conversation to segment 6 on purpose — flag it and move on.)
 
 ```bash
-kubectl set env deployment/postgres POSTGRES_PASSWORD=demo-not-a-real-password
+kubectl set env deployment/postgres POSTGRES_PASSWORD=demo-not-a-real-password POSTGRES_DB=appdb
 ```
 
 ```
@@ -387,7 +387,7 @@ kubectl port-forward service/sample-app 8080:8080
 Forwarding from 127.0.0.1:8080 -> 8080
 ```
 
-In a browser or a second terminal, hit the health endpoint and then the data endpoint — the data endpoint reads and writes a row in Postgres, proving the full stack is wired. Substitute the concrete data route your sample app exposes (per TDD §4) wherever `<the data endpoint>` appears below.
+In a browser or a second terminal, hit the health endpoint and then the data endpoint — `/counter` reads and writes a row in Postgres, proving the full stack is wired.
 
 ```bash
 curl localhost:8080/healthz
@@ -398,7 +398,7 @@ ok
 ```
 
 ```bash
-curl localhost:8080/<the data endpoint>
+curl localhost:8080/counter
 ```
 
 ```
@@ -408,7 +408,7 @@ curl localhost:8080/<the data endpoint>
 The app served a request that went all the way to Postgres and back. The full POC stack is live on `kind`. Hit the data endpoint a few more times and watch the count climb — every request writes a row, so the number going up is proof the data is genuinely landing in Postgres.
 
 ```bash
-curl localhost:8080/<the data endpoint>
+curl localhost:8080/counter
 ```
 
 ```
@@ -426,7 +426,7 @@ pod "postgres-6b8c9d7f5-mn2kq" deleted
 ```
 
 ```bash
-curl localhost:8080/<the data endpoint>
+curl localhost:8080/counter
 ```
 
 ```

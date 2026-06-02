@@ -1,0 +1,10 @@
+flowchart LR
+    L1["What you declare<br/>Desired state"]:::found
+    L2["What is real<br/>Actual state"]:::found
+    L3["Close the gap<br/>Reconciliation"]:::found
+    D["Something drifts<br/>Disturbance"]:::interlude
+    L1 --> L2 --> L3 --> L1
+    D -. "Drive back to desired<br/>Self-healing" .-> L3
+
+    classDef interlude fill:#ddd,stroke:#666,color:#222
+    classDef found fill:#e6d7ff,stroke:#7a3ff2,color:#23004d

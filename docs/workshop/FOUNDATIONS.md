@@ -152,12 +152,12 @@ Kustomize Version: v5.x.x
 Create the cluster from the multi-node config — one control-plane node and two workers, matching the kitchen split from segment 2. The config file lives in the pre-flight checklist's prepared materials:
 
 ```bash
-kind create cluster --config kind-cluster.yaml
+kind create cluster --config manifests/day-one/kind-cluster.yaml
 ```
 
 ```text
 Creating cluster "kind" ...
- ✓ Ensuring node image (kindest/node:v1.3x.x)
+ ✓ Ensuring node image (kindest/node:v1.35.0)
  ✓ Preparing nodes
  ✓ Writing configuration
  ✓ Starting control-plane
@@ -175,9 +175,9 @@ kubectl get nodes
 
 ```text
 NAME                 STATUS   ROLES           AGE   VERSION
-kind-control-plane   Ready    control-plane   60s   v1.3x.x
-kind-worker          Ready    <none>          40s   v1.3x.x
-kind-worker2         Ready    <none>          40s   v1.3x.x
+kind-control-plane   Ready    control-plane   60s   v1.35.0
+kind-worker          Ready    <none>          40s   v1.35.0
+kind-worker2         Ready    <none>          40s   v1.35.0
 ```
 
 This is the moment to map it back to the analogy out loud: one control-plane node is the head chef, two worker nodes are the cook stations. Then show where the control plane lives and what address it serves:
@@ -205,7 +205,7 @@ kind-kind
 
 ### Watch for
 
-- **A misconfigured container runtime is the one failure that can swallow this segment.** If `docker info` errors or `kind create cluster` fails because no runtime is reachable, do **not** debug it on stage — this segment is the gate for the entire workshop and the time budget will not survive a runtime rabbit hole. Point the student at the pre-flight checklist and the `poc` branch (which holds the cluster config and equivalent manifests) and move on; help them after the segment.
+- **A misconfigured container runtime is the one failure that can swallow this segment.** If `docker info` errors or `kind create cluster` fails because no runtime is reachable, do **not** debug it on stage — this segment is the gate for the entire workshop and the time budget will not survive a runtime rabbit hole. Point the student at the pre-flight checklist and the committed manifests at `manifests/day-one/` (which hold the cluster config and equivalent manifests) and move on; help them after the segment.
 - **A skewed `kubectl` produces confusing mid-demo errors that are not the lesson.** If `kubectl version --client` shows a client more than one minor off the node version, flag it and have the student pin the matching client during a break rather than chasing odd errors live.
 - **`kubectl get nodes` showing a node stuck `NotReady`** usually means the CNI is still settling — give it a few seconds and re-run before treating it as broken.
 

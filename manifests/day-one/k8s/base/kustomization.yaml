@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: app
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+  - gateway.yaml
+  - httproute.yaml
+  - postgres-cluster.yaml
