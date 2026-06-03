@@ -1120,7 +1120,7 @@ Express the difference between `kind` and EKS without editing the manifests. EKS
 ### Talking points
 
 - **The base from segment 14 stays exactly as it is.** Overlays **patch** the base; they do not rewrite it. Everything common to both environments — the Deployment shape, the Service, the probes, the CNPG `Cluster` — lives in the base unchanged. We are adding two thin overlays beside it, not forking the manifests.
-- **An overlay is a set of patches plus a reference to the base.** Each overlay's `kustomization.yaml` names the base as a resource and lists patches that change only what differs for that environment. `kustomize build overlays/eks` produces the base with the EKS patches applied; `overlays/kind` does the same for `kind`.
+- **An overlay is a set of patches plus a reference to the base.** Each overlay's `kustomization.yaml` names the base as a resource and lists patches that change only what differs for that environment. `kustomize build manifests/day-two/k8s/overlays/eks` produces the base with the EKS patches applied; `manifests/day-two/k8s/overlays/kind` does the same for `kind`.
 - **What actually differs is small and concrete.** `kind`: local-path storage, the `nginx` GatewayClass, a low replica count. `eks`: the gp3 StorageClass, the `alb` GatewayClass, a higher replica count. Two short patch sets — not two copies of the app. Seeing how little differs is the lesson.
 - **This is a migration aid, not multi-cluster.** The overlays let the same base run on a real cloud cluster; they do not run both clusters at once. Each overlay is reconciled by *that cluster's own* Argo CD (the `kind` base by segment 21's Argo CD, the `eks` overlay by segment 28's). There is no single Argo CD spanning both.
 
@@ -1129,7 +1129,7 @@ Express the difference between `kind` and EKS without editing the manifests. EKS
 Show the existing base from segment 14 — untouched — so it is clear what the overlays sit on top of:
 
 ```bash
-ls k8s/base
+ls manifests/day-one/k8s/base
 ```
 
 ```text
@@ -1137,14 +1137,14 @@ deployment.yaml  service.yaml  gateway.yaml  httproute.yaml
 configmap.yaml  postgres-cluster.yaml  kustomization.yaml
 ```
 
-Create the `kind` overlay: it references the base and patches in the values `kind` used — the local-path storage class, the `nginx` gateway class, and a low replica count. Writing the heredoc prints nothing on success — `overlays/kind/kustomization.yaml` is created:
+Create the `kind` overlay: it references the base and patches in the values `kind` used — the local-path storage class, the `nginx` gateway class, and a low replica count. Writing the heredoc prints nothing on success — `manifests/day-two/k8s/overlays/kind/kustomization.yaml` is created:
 
 ```bash
-cat > overlays/kind/kustomization.yaml <<'EOF'
+cat > manifests/day-two/k8s/overlays/kind/kustomization.yaml <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../base
+  - ../../../../day-one/k8s/base
 patches:
   - path: gateway-class-nginx.yaml
     target: { kind: Gateway, name: sample-app }
@@ -1153,14 +1153,14 @@ patches:
 EOF
 ```
 
-Create the `eks` overlay: same base, but patched with the EKS-specific values — the `alb` GatewayClass (the ALB's behaviour lives in the `LoadBalancerConfiguration` and `TargetGroupConfiguration` CRDs the class references by `parametersRef`, applied in segment 26, not in this patch), the gp3 storage class on the CNPG `Cluster`, and a higher replica count. This too prints nothing on success, writing `overlays/eks/kustomization.yaml`:
+Create the `eks` overlay: same base, but patched with the EKS-specific values — the `alb` GatewayClass (the ALB's behaviour lives in the `LoadBalancerConfiguration` and `TargetGroupConfiguration` CRDs the class references by `parametersRef`, applied in segment 26, not in this patch), the gp3 storage class on the CNPG `Cluster`, and a higher replica count. This too prints nothing on success, writing `manifests/day-two/k8s/overlays/eks/kustomization.yaml`:
 
 ```bash
-cat > overlays/eks/kustomization.yaml <<'EOF'
+cat > manifests/day-two/k8s/overlays/eks/kustomization.yaml <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../base
+  - ../../../../day-one/k8s/base
 patches:
   - path: gateway-class-alb.yaml
     target: { kind: Gateway, name: sample-app }
@@ -1176,7 +1176,7 @@ The five patch bodies these overlays reference — `gateway-class-nginx.yaml`, `
 Confirm the base is unchanged by building the `eks` overlay and diffing the rendered output against the bare base — the only differences are the patched fields, proving the overlay patches rather than rewrites:
 
 ```bash
-diff <(kubectl kustomize k8s/base) <(kubectl kustomize overlays/eks) | head -20
+diff <(kubectl kustomize manifests/day-one/k8s/base) <(kubectl kustomize manifests/day-two/k8s/overlays/eks) | head -20
 ```
 
 ```text
@@ -1193,9 +1193,9 @@ A handful of lines differ — the gateway class, the storage class, the replica 
 
 ### Watch for
 
-- **`kustomize build` errors on a patch target that does not match** — the `target` selector (kind + name) must match a resource the base actually produces. A typo in the kind or name silently patches nothing or errors; confirm the target names against `kubectl kustomize k8s/base`.
+- **`kustomize build` errors on a patch target that does not match** — the `target` selector (kind + name) must match a resource the base actually produces. A typo in the kind or name silently patches nothing or errors; confirm the target names against `kubectl kustomize manifests/day-one/k8s/base`.
 - **A tempted edit to the base** — if a value "needs" to change for both environments, that belongs in the base; if it differs *between* them, it belongs in an overlay patch. The failure mode is editing the base to fix EKS and breaking `kind`. Keep environment-specific values out of the base entirely.
-- **Overlay path wrong (`../../base` does not resolve)** — Kustomize resolves the base path relative to the overlay's own `kustomization.yaml`. From `overlays/eks/` the base is two levels up; an off-by-one here is the most common "resource not found" build error.
+- **Overlay path wrong (`../../../../day-one/k8s/base` does not resolve)** — Kustomize resolves the base path relative to the overlay's own `kustomization.yaml`. From `manifests/day-two/k8s/overlays/eks/` the day-one base is four levels up; an off-by-one here is the most common "resource not found" build error.
 
 ### Transition
 
@@ -1243,14 +1243,14 @@ kubectl apply -f \
 deployment.apps/sealed-secrets-controller created
 ```
 
-**Step 2 — Seal the EKS copy of the Postgres Secret** against *this* cluster's key. Same fake demo value, sealed locally, written into the `eks` overlay — the plaintext never touches git. The pipeline prints nothing on success; the EKS-sealed, git-safe resource lands in `overlays/eks/sealed-db-extra.yaml`:
+**Step 2 — Seal the EKS copy of the Postgres Secret** against *this* cluster's key. Same fake demo value, sealed locally, written into the `eks` overlay — the plaintext never touches git. The pipeline prints nothing on success; the EKS-sealed, git-safe resource lands in `manifests/day-two/k8s/overlays/eks/sealed-db-extra.yaml`:
 
 ```bash
 kubectl create secret generic db-extra -n app \
   --from-literal=password=demo-not-a-real-password \
   --dry-run=client -o yaml \
   | kubeseal --controller-namespace kube-system --format yaml \
-  > overlays/eks/sealed-db-extra.yaml
+  > manifests/day-two/k8s/overlays/eks/sealed-db-extra.yaml
 ```
 
 Call out the improvement over segment 23: piping the plaintext straight into `kubeseal` over stdin is strictly **safer** than segment 23's write-to-disk-then-`rm` pattern, because the plaintext manifest never lands on disk at all — there is no temporary file to forget to delete, and nothing for `git add` to catch by accident. Only the sealed output is ever written. Prefer this stdin pattern wherever you can.
@@ -1283,7 +1283,7 @@ spec:
   source:
     repoURL: https://github.com/ALT-F4-LLC/fem-kubernetes
     targetRevision: main
-    path: overlays/eks
+    path: manifests/day-two/k8s/overlays/eks
   destination:
     server: https://kubernetes.default.svc
     namespace: app
@@ -1311,7 +1311,7 @@ The same repository that drove `kind` this morning now drives EKS this afternoon
 
 ### Watch for
 
-- **`Application` syncs the wrong path** — if it points at `k8s/base` instead of `overlays/eks`, the cloud cluster gets the `kind` values (nginx gateway class, low replicas). Confirm `path: overlays/eks` in the `Application`; this is the single most likely cause of "EKS came up with the wrong config."
+- **`Application` syncs the wrong path** — if it points at `manifests/day-one/k8s/base` instead of `manifests/day-two/k8s/overlays/eks`, the cloud cluster gets the `kind` values (nginx gateway class, low replicas). Confirm `path: manifests/day-two/k8s/overlays/eks` in the `Application`; this is the single most likely cause of "EKS came up with the wrong config."
 - **Sealed secret will not decrypt on EKS** (`no key could decrypt secret`) — the `SealedSecret` was sealed against `kind`'s key, not EKS's. That is the per-cluster-key lesson firing: re-seal against the EKS controller (as above) into the `eks` overlay. A `kind`-sealed copy in the `eks` overlay is the classic mistake.
 - **Accidentally on the `kind` context** — installing Argo CD or sealing "on EKS" while `current-context` is `kind-kind` puts everything on the wrong cluster. The `current-context` check at the top of this segment is the guard; re-run it if anything lands unexpectedly.
 

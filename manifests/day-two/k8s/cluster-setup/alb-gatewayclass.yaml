@@ -1,0 +1,30 @@
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: alb-internet-facing
+  namespace: app
+spec:
+  scheme: internet-facing
+---
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: alb-target-ip
+  namespace: app
+spec:
+  targetReference:
+    name: sample-app
+  defaultConfiguration:
+    targetType: ip
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: alb
+spec:
+  controllerName: gateway.k8s.aws/alb
+  parametersRef:
+    group: gateway.k8s.aws
+    kind: LoadBalancerConfiguration
+    name: alb-internet-facing
+    namespace: app
