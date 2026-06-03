@@ -795,7 +795,7 @@ curl -H "Host: sample-app.local" http://localhost:30080/healthz
 ```
 
 ```text
-ok
+{"status":"ok"}
 ```
 
 Commit the `Gateway`, the `HTTPRoute`, and the simplified Service.

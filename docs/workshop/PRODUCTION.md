@@ -169,7 +169,7 @@ MinReadySeconds:        0
 RollingUpdateStrategy:  25% max unavailable, 25% max surge
 ```
 
-Roll out a good change first so the class sees a healthy rollout complete — bump to a known-good tag and watch `rollout status` march to done:
+Roll out a good change first so the class sees a healthy rollout complete — bump to a known-good tag and watch `rollout status` march to done. The base already runs `:v1`, so `<a-known-good-tag>` must be a **distinct** known-good tag, different from the `:v1` the Deployment is already on — rolling to the tag it already runs is a no-op and the class sees nothing change:
 
 ```bash
 kubectl set image deployment/sample-app -n app \
@@ -197,7 +197,7 @@ Waiting for deployment "sample-app" rollout to finish: 1 old replicas are pendin
 error: timed out waiting for the condition
 ```
 
-Confirm the stall visually: the new Pod is wedged in `ImagePullBackOff` while the old Pod stays `Running` and serving traffic. The app is **not** down:
+Confirm the stall visually: the new Pod is wedged on the failed pull while the old Pod stays `Running` and serving traffic. The app is **not** down. A failed pull shows briefly as `ErrImagePull` on the first attempt and then settles into `ImagePullBackOff` as kubelet backs off — same wedged-pull signal, so you may catch either status depending on timing:
 
 ```bash
 kubectl get pods -n app
@@ -206,7 +206,7 @@ kubectl get pods -n app
 ```text
 NAME                          READY   STATUS             RESTARTS   AGE
 sample-app-7d9c4b5f8-2xq4r    1/1     Running            0          5m
-sample-app-6c4f9b2a1-pk8wd    0/1     ImagePullBackOff   0          40s
+sample-app-6c4f9b2a1-pk8wd    0/1     ErrImagePull       0          40s
 ```
 
 Recover with one command. `rollout undo` reverts to the last known-good revision, which is already on disk:
@@ -285,45 +285,57 @@ NAME         MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
 sample-app   2               N/A               1                     10s
 ```
 
-Pick a worker node that is running an app Pod, then drain it. The drain cordons the node and evicts Pods, but the PDB makes it evict the app Pod only after a replacement is ready — so the available count never drops below 2:
+First find which worker is running the database, because you want to drain *around* it. CloudNativePG runs a single Postgres instance here, and it auto-creates a `postgres-primary` PodDisruptionBudget with `minAvailable: 1` / `allowed-disruptions: 0` — its one Pod can never be voluntarily evicted, so a drain of whatever node it sits on will block on that PDB and time out. (In production you would scale CNPG to 2 instances so any worker is drainable; for this single-instance demo you simply pick the other node.) Check where `postgres-1` landed:
 
 ```bash
-kubectl drain kind-worker --ignore-daemonsets --delete-emptydir-data
+kubectl get pod postgres-1 -n app -o wide
 ```
 
 ```text
-node/kind-worker cordoned
+NAME         READY   STATUS    RESTARTS   AGE   IP           NODE          NOMINATED NODE   READINESS GATES
+postgres-1   1/1     Running   0          12m   10.244.1.7   kind-worker   <none>           <none>
+```
+
+Drain the worker that is **not** running `postgres-1` — here `postgres-1` is on `kind-worker`, so drain `kind-worker2`. The drain cordons the node and evicts Pods, but the app PDB makes it evict the app Pod only after a replacement is ready — so the available count never drops below 2:
+
+```bash
+kubectl drain kind-worker2 --ignore-daemonsets --delete-emptydir-data
+```
+
+```text
+node/kind-worker2 cordoned
 evicting pod app/sample-app-7d9c4b5f8-2xq4r
 evicting pod kube-system/...
 pod/sample-app-7d9c4b5f8-2xq4r evicted
-node/kind-worker drained
+node/kind-worker2 drained
 ```
 
-Throughout the drain, hit the app — it keeps answering, because the PDB held the floor while Pods moved to the other worker:
+Throughout the drain, hit the app — it keeps answering, because the app PDB held the floor while Pods moved to the other worker. There is no outage; a single sub-second blip is possible if the `nginx-gateway` controller Pod happened to be on the drained node and gets evicted, but traffic recovers instantly:
 
 ```bash
 curl -H "Host: sample-app.local" http://localhost:30080/healthz
 ```
 
 ```text
-ok
+{"status":"ok"}
 ```
 
 Uncordon the node when you are done so the cluster goes back to normal for the rest of the morning:
 
 ```bash
-kubectl uncordon kind-worker
+kubectl uncordon kind-worker2
 ```
 
 ```text
-node/kind-worker uncordoned
+node/kind-worker2 uncordoned
 ```
 
-The node went out for maintenance and came back, and a user hitting the app would never have known.
+The node went out for maintenance and came back with no outage — at worst a user saw a single sub-second blip if the gateway controller Pod rode along on the drained node, and it recovered instantly.
 
 ### Watch for
 
-- **The drain hangs and never completes** — the PDB cannot be satisfied because there are not enough replicas to keep the floor while evicting. With `minAvailable: 2` you need at least 3 replicas for the drain to make progress. Confirm the replica count; this is the "single replica blocks the drain" lesson made literal.
+- **The drain hangs on `postgres-1` and times out** — this is the case the `kubectl get pod postgres-1 -o wide` step above exists to avoid. CloudNativePG's single instance has a `postgres-primary` PDB with `allowed-disruptions: 0`, so draining the node it sits on blocks forever with `Cannot evict pod as it would violate the pod's disruption budget`. If you see this, you drained the wrong worker — uncordon it and drain the other one. (Scaling CNPG to 2 instances is the production fix that makes any node drainable.)
+- **The drain hangs on the app Pods** — the app PDB cannot be satisfied because there are not enough replicas to keep the floor while evicting. With `minAvailable: 2` you need at least 3 replicas for the drain to make progress. Confirm the replica count; this is the "single replica blocks the drain" lesson made literal.
 - **`kubectl drain` errors on DaemonSet Pods** — pass `--ignore-daemonsets` (as above). DaemonSet Pods are managed per-node and are expected to stay; the flag tells drain to skip them rather than fail.
 - **`emptyDir` data warning** — `--delete-emptydir-data` acknowledges that any `emptyDir` scratch space on evicted Pods is discarded. On `kind` with this app that is safe; name it so students know the flag is a deliberate acknowledgement, not a workaround.
 
@@ -461,8 +473,8 @@ Install Argo CD into its own namespace from the upstream manifests:
 
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd \
-  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply --server-side -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.4.3/manifests/install.yaml
 ```
 
 ```text
@@ -506,9 +518,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: <your-repo-url>
-    targetRevision: production
-    path: k8s/base
+    repoURL: https://github.com/ALT-F4-LLC/fem-kubernetes
+    targetRevision: main
+    path: manifests/day-one/k8s/base
   destination:
     server: https://kubernetes.default.svc
     namespace: app
@@ -559,7 +571,9 @@ Git won. The cluster is back to what the repository says, and no one applied it 
 
 ### Watch for
 
+- **Install errors on the `applicationsets` CRD being too large** — a plain `kubectl apply` (client-side) fails with `metadata.annotations: Too long: may not be more than 262144 bytes`, because the CRD exceeds kubectl's 256KB `last-applied-configuration` annotation limit. The `--server-side` flag above avoids this entirely on a fresh install. You only need to add `--force-conflicts` as a recovery step if a prior **client-side** apply already touched these resources and left field-manager conflicts behind — it is not needed for the clean install shown here.
 - **Argo CD install drags and eats the budget** — 30 minutes is enough for the install plus **one** synced `Application` only. If the install is slow, get the one app synced and **move the drift demonstration to segment 28** (per the OUTLINE time-budget note); keep this segment to "installed and one app synced."
+- **The `OutOfSync` window flashes by before you can show it** — on this small cluster `selfHeal` drives the manual change back in ~1-2s, so `OutOfSync` can revert faster than a `kubectl get` or a UI poll catches. To actually show the drift, momentarily set `selfHeal: false` on the `Application` (re-enable it after), keep a fast eye on the UI right after the hand-edit, or have a pre-staged screenshot of the `OutOfSync` state ready.
 - **`Application` stuck `OutOfSync` and never syncs** — usually `repoURL` / `path` / `targetRevision` does not resolve, or the repo is private and Argo CD has no credentials. Check the app's conditions in the UI or `kubectl describe application sample-app -n argocd`; the error names the unreachable repo or path.
 - **Port-forward to the UI fails TLS** — `argocd-server` serves HTTPS on 443; forward to the local port and accept the self-signed cert in the browser, or use `--insecure` on the UI. This is a `kind`-local convenience, not how you would expose Argo CD for real.
 
