@@ -620,7 +620,7 @@ sample-app   nginx   localhost   True         20s
 
 $ curl -H "Host: sample-app.local" \
     http://localhost:30080/healthz
-ok
+{"status":"ok"}
 ```
 
 One curl, both runtimes - the data-plane Pod is pinned to the control-plane node, so Docker Desktop and OrbStack both reach localhost:30080.
@@ -1201,7 +1201,7 @@ gp2    kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer
 
 ```bash
 $ eksctl create addon --name aws-ebs-csi-driver \
-    --cluster fem-workshop --region <region> --force
+    --cluster fem-workshop --region us-west-2 --force
 ... addon "aws-ebs-csi-driver" active
 
 $ kubectl apply -f - <<'EOF'
@@ -1225,7 +1225,7 @@ $ kubectl get pvc -n app
 NAME         STATUS   VOLUME      CAPACITY   STORAGECLASS
 postgres-1   Bound    pvc-a1b2c3  10Gi       gp3
 
-$ aws ec2 describe-volumes --region <region> \
+$ aws ec2 describe-volumes --region us-west-2 \
     --filters Name=tag:...pvc/name,Values=postgres-1 \
     --query 'Volumes[].{ID:VolumeId,Type:VolumeType}'
 [ { "ID": "vol-0abc123def456", "Type": "gp3" } ]
@@ -1322,9 +1322,9 @@ Only `gatewayClassName` changed - contract unchanged, controller environmental.
 ## The eks overlay names the base and its patches
 
 ```bash
-$ cat > overlays/eks/kustomization.yaml <<'EOF'
+$ cat > manifests/day-two/k8s/overlays/eks/kustomization.yaml <<'EOF'
 resources:
-  - ../../base
+  - ../../../../day-one/k8s/base
 patches:
   - path: gateway-class-alb.yaml
     target: { kind: Gateway, name: sample-app }
@@ -1335,15 +1335,15 @@ patches:
 EOF
 ```
 
-`overlays/kind/` does the same with the `nginx` class and replicas-2.
+`manifests/day-two/k8s/overlays/kind/` does the same with the `nginx` class and replicas-2.
 
 ---
 
 ## Diff proves the base is untouched
 
 ```bash
-$ diff <(kubectl kustomize k8s/base) \
-       <(kubectl kustomize overlays/eks) | head
+$ diff <(kubectl kustomize manifests/day-one/k8s/base) \
+       <(kubectl kustomize manifests/day-two/k8s/overlays/eks) | head
 <     gatewayClassName: nginx
 >     gatewayClassName: alb
 <   replicas: 2
@@ -1380,7 +1380,7 @@ $ kubectl create secret generic db-extra -n app \
     --from-literal=password=demo-not-a-real-password \
     --dry-run=client -o yaml \
   | kubeseal --controller-namespace kube-system --format yaml \
-  > overlays/eks/sealed-db-extra.yaml
+  > manifests/day-two/k8s/overlays/eks/sealed-db-extra.yaml
 ```
 
 Piping into `kubeseal` beats write-then-`rm` - nothing to forget on disk.
@@ -1393,7 +1393,7 @@ Piping into `kubeseal` beats write-then-`rm` - nothing to forget on disk.
 $ kubectl apply -n argocd -f - <<'EOF'
 kind: Application
 spec:
-  source: { repoURL: <repo>, path: overlays/eks }
+  source: { repoURL: <repo>, targetRevision: main, path: manifests/day-two/k8s/overlays/eks }
   destination:
     server: https://kubernetes.default.svc
   syncPolicy: { automated: { selfHeal: true } }
@@ -1404,7 +1404,7 @@ NAME         SYNC STATUS   HEALTH STATUS
 sample-app   Synced        Healthy
 ```
 
-`path: overlays/eks` - point at `base` and EKS gets the `kind` values.
+`path: manifests/day-two/k8s/overlays/eks` - point at `base` and EKS gets the `kind` values.
 
 ---
 
@@ -1441,7 +1441,7 @@ LAST SEEN   TYPE     REASON          OBJECT         MESSAGE
 
 ```bash
 $ aws eks create-addon --cluster-name fem-workshop \
-    --region <region> \
+    --region us-west-2 \
     --addon-name amazon-cloudwatch-observability
 { "addon": { "status": "CREATING" } }
 ```
@@ -1466,14 +1466,14 @@ We stop here on purpose: a Prometheus/Grafana/Loki stack is its own thing to run
 ## Delete, then check for orphans
 
 ```bash
-$ eksctl delete cluster -f eks-cluster.yaml --region <region>
+$ eksctl delete cluster -f eks-cluster.yaml --region us-west-2
 ... deleting EKS cluster "fem-workshop"
 
-$ aws elbv2 describe-load-balancers --region <region> \
+$ aws elbv2 describe-load-balancers --region us-west-2 \
     --query 'LoadBalancers[?contains(...,`k8s-sampleapp`)]'
 []
 
-$ aws ec2 describe-volumes --region <region> \
+$ aws ec2 describe-volumes --region us-west-2 \
     --filters Name=...cluster/fem-workshop,Values=owned \
               Name=status,Values=available
 []
@@ -1488,8 +1488,8 @@ Two empty lists - the clean case, and the one to make students see.
 The single most common cloud-workshop regret is the cluster that ran for a week after everyone went home. The verification is how you guarantee it doesn't happen to anyone in the room.
 
 ```bash
-$ eksctl get cluster --region <region>
-No clusters found in <region>.
+$ eksctl get cluster --region us-west-2
+No clusters found in us-west-2.
 ```
 
 Down, verified clean, nothing billing - no one leaves Day 2 with a live cluster.
