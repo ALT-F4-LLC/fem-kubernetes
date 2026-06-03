@@ -898,12 +898,12 @@ Waiting for deployment rollout to finish: 1 old replicas...
 error: timed out waiting for the condition
 
 $ kubectl get pods
-NAME                       READY  STATUS            RESTARTS
-sample-app-7d9c4b5f8-2xq4r 1/1    Running           0
-sample-app-6c4f9b2a1-pk8wd 0/1    ImagePullBackOff  0
+NAME                       READY  STATUS         RESTARTS
+sample-app-7d9c4b5f8-2xq4r 1/1    Running        0
+sample-app-6c4f9b2a1-pk8wd 0/1    ErrImagePull   0
 ```
 
-New Pod wedged, old Pod still serving - the app is **not** down.
+`ErrImagePull` first, then settles into `ImagePullBackOff` - new Pod wedged, old Pod still serving, the app is **not** down.
 
 ---
 
@@ -954,17 +954,21 @@ sample-app   2               1                     10s
 ## Drain the node - the app keeps answering
 
 ```bash
-$ kubectl drain kind-worker \
+$ kubectl get pod postgres-1 -n app -o wide
+NAME         READY   STATUS    NODE
+postgres-1   1/1     Running   kind-worker
+
+$ kubectl drain kind-worker2 \
     --ignore-daemonsets --delete-emptydir-data
-node/kind-worker cordoned
+node/kind-worker2 cordoned
 pod/sample-app-7d9c4b5f8-2xq4r evicted
-node/kind-worker drained
+node/kind-worker2 drained
 
 $ curl -H "Host: sample-app.local" localhost/healthz
-ok
+{"status":"ok"}
 ```
 
-The node went out for maintenance - a user would never have known.
+CNPG's single-instance `postgres-primary` PDB allows 0 disruptions - drain the **other** worker. No outage; at worst a sub-second blip if the `nginx-gateway` controller Pod rode the drained node, recovering instantly.
 
 ---
 
@@ -1032,19 +1036,23 @@ Compromise this Pod and the cluster blast radius is exactly that Role.
 
 ```bash
 $ kubectl create namespace argocd
-$ kubectl apply -n argocd -f .../argo-cd/.../install.yaml
+$ kubectl apply --server-side -n argocd \
+    -f .../argo-cd/v3.4.3/manifests/install.yaml
 
 $ kubectl apply -n argocd -f - <<'EOF'
 kind: Application
 spec:
-  source: { repoURL: <repo>, path: k8s/base }
+  source:
+    repoURL: <repo>
+    targetRevision: main
+    path: manifests/day-one/k8s/base
   destination:
     server: https://kubernetes.default.svc
   syncPolicy: { automated: { selfHeal: true } }
 EOF
 ```
 
-`destination.server` is the in-cluster API - no external registration.
+`--server-side`: the `applicationsets` CRD exceeds kubectl's 256KB client-side limit. `destination.server` is the in-cluster API - no external registration.
 
 ---
 
@@ -1061,7 +1069,7 @@ NAME         READY   UP-TO-DATE   AVAILABLE
 sample-app   2/2     2            2
 ```
 
-`selfHeal` reverts the manual change - git won, no one applied it.
+`selfHeal` reverts the manual change - git won, no one applied it. The `OutOfSync` window is sub-second here, so catch it fast or pre-stage a screenshot.
 
 ---
 
