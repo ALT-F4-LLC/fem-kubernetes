@@ -609,7 +609,7 @@ eksctl create cluster -f eks-cluster.yaml
 
 ```text
 2026-06-03 12:46:01 [ℹ]  eksctl version 0.x.x
-2026-06-03 12:46:01 [ℹ]  using region <region>
+2026-06-03 12:46:01 [ℹ]  using region us-west-2
 2026-06-03 12:46:02 [ℹ]  building cluster stack "eksctl-fem-workshop-cluster"
 2026-06-03 12:46:03 [ℹ]  deploying stack "eksctl-fem-workshop-cluster" ...
 ```
@@ -746,11 +746,11 @@ Meet the EKS cluster that has been provisioning since the top of segment 23 — 
 The cluster came up under segment 23's background provision. Point `kubectl` at the EKS context `eksctl` created (substitute your region and cluster name):
 
 ```bash
-kubectl config use-context <your-aws-account>@fem-workshop.<region>.eksctl.io
+kubectl config use-context <your-aws-account>@fem-workshop.us-west-2.eksctl.io
 ```
 
 ```text
-Switched to context "<your-aws-account>@fem-workshop.<region>.eksctl.io".
+Switched to context "<your-aws-account>@fem-workshop.us-west-2.eksctl.io".
 ```
 
 Confirm the cluster is live — the managed nodes should be `Ready`. These are real EC2 instances, not containers on a laptop:
@@ -761,8 +761,8 @@ kubectl get nodes
 
 ```text
 NAME                                          STATUS   ROLES    AGE   VERSION
-ip-192-168-12-34.<region>.compute.internal    Ready    <none>   3m    v1.3x.x-eks-xxxxx
-ip-192-168-56-78.<region>.compute.internal    Ready    <none>   3m    v1.3x.x-eks-xxxxx
+ip-192-168-12-34.us-west-2.compute.internal    Ready    <none>   3m    v1.3x.x-eks-xxxxx
+ip-192-168-56-78.us-west-2.compute.internal    Ready    <none>   3m    v1.3x.x-eks-xxxxx
 ```
 
 Show where the control plane lives — a managed AWS endpoint, not a local port:
@@ -772,8 +772,8 @@ kubectl cluster-info
 ```
 
 ```text
-Kubernetes control plane is running at https://XXXXXXXX.gr7.<region>.eks.amazonaws.com
-CoreDNS is running at https://XXXXXXXX.gr7.<region>.eks.amazonaws.com/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+Kubernetes control plane is running at https://XXXXXXXX.gr7.us-west-2.eks.amazonaws.com
+CoreDNS is running at https://XXXXXXXX.gr7.us-west-2.eks.amazonaws.com/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
 ```
 
 Name the gaps out loud — what EKS does *not* yet have that `kind` did. There is no local-path provisioner, no NGINX Gateway Fabric or any other Gateway controller, and no Sealed Secrets controller here. Show that the default StorageClass story is different by listing what exists:
@@ -823,7 +823,7 @@ Enable the EBS CSI driver as a managed EKS add-on (substitute your cluster name 
 
 ```bash
 eksctl create addon --name aws-ebs-csi-driver \
-  --cluster fem-workshop --region <region> --force
+  --cluster fem-workshop --region us-west-2 --force
 ```
 
 ```text
@@ -891,7 +891,7 @@ postgres-1   Bound    pvc-a1b2c3   10Gi       RWO            gp3            45s
 The same Postgres manifest that ran on local-path now runs on durable EBS — proof in the AWS console, where a real gp3 volume now exists:
 
 ```bash
-aws ec2 describe-volumes --region <region> \
+aws ec2 describe-volumes --region us-west-2 \
   --filters Name=tag:kubernetes.io/created-for/pvc/name,Values=postgres-1 \
   --query 'Volumes[].{ID:VolumeId,Type:VolumeType,Size:Size}'
 ```
@@ -938,8 +938,8 @@ The controller needs IAM permissions to manage load balancers. Associate the clu
 
 ```bash
 eksctl utils associate-iam-oidc-provider --cluster fem-workshop \
-  --region <region> --approve
-eksctl create iamserviceaccount --cluster fem-workshop --region <region> \
+  --region us-west-2 --approve
+eksctl create iamserviceaccount --cluster fem-workshop --region us-west-2 \
   --namespace kube-system --name aws-load-balancer-controller \
   --attach-policy-arn arn:aws:iam::<your-aws-account>:policy/AWSLoadBalancerControllerIAMPolicy \
   --approve
@@ -1080,13 +1080,13 @@ kubectl get gateway sample-app -n app
 
 ```text
 NAME         CLASS   ADDRESS                                                       PROGRAMMED   AGE
-sample-app   alb     k8s-sampleapp-xxxx-1234567890.<region>.elb.amazonaws.com      True         90s
+sample-app   alb     k8s-sampleapp-xxxx-1234567890.us-west-2.elb.amazonaws.com      True         90s
 ```
 
 Hit the app through the ALB's public DNS name — traffic now enters through real AWS infrastructure, not a port-forward:
 
 ```bash
-curl http://k8s-sampleapp-xxxx-1234567890.<region>.elb.amazonaws.com/healthz
+curl http://k8s-sampleapp-xxxx-1234567890.us-west-2.elb.amazonaws.com/healthz
 ```
 
 ```text
@@ -1228,7 +1228,7 @@ kubectl config current-context
 ```
 
 ```text
-<your-aws-account>@fem-workshop.<region>.eksctl.io
+<your-aws-account>@fem-workshop.us-west-2.eksctl.io
 ```
 
 **Step 1 — Install the Sealed Secrets controller on EKS** — its own controller, its own key:
@@ -1360,8 +1360,8 @@ kubectl top nodes
 
 ```text
 NAME                                          CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%
-ip-192-168-12-34.<region>.compute.internal    95m          4%     820Mi           11%
-ip-192-168-56-78.<region>.compute.internal    78m          3%     760Mi           10%
+ip-192-168-12-34.us-west-2.compute.internal    95m          4%     820Mi           11%
+ip-192-168-56-78.us-west-2.compute.internal    78m          3%     760Mi           10%
 ```
 
 The cluster's running narration — recent events in the app namespace, newest last:
@@ -1381,7 +1381,7 @@ LAST SEEN   TYPE     REASON      OBJECT                             MESSAGE
 Enable EKS CloudWatch Container Insights as a managed add-on — the platform collecting metrics for you, no in-cluster stack:
 
 ```bash
-aws eks create-addon --cluster-name fem-workshop --region <region> \
+aws eks create-addon --cluster-name fem-workshop --region us-west-2 \
   --addon-name amazon-cloudwatch-observability
 ```
 
@@ -1435,7 +1435,7 @@ Tear the EKS cluster down completely — and verify nothing was left behind to k
 Start the deletion. It runs for several minutes in the background while you walk the orphaned-resource check — do not wait silently on it:
 
 ```bash
-eksctl delete cluster -f eks-cluster.yaml --region <region>
+eksctl delete cluster -f eks-cluster.yaml --region us-west-2
 ```
 
 ```text
@@ -1447,7 +1447,7 @@ eksctl delete cluster -f eks-cluster.yaml --region <region>
 While that runs, check for orphaned load balancers — there should be none once the controller cleaned up the ALB from the deleted `Gateway`. An empty result is the goal:
 
 ```bash
-aws elbv2 describe-load-balancers --region <region> \
+aws elbv2 describe-load-balancers --region us-west-2 \
   --query 'LoadBalancers[?contains(LoadBalancerName, `k8s-sampleapp`)].LoadBalancerArn'
 ```
 
@@ -1458,7 +1458,7 @@ aws elbv2 describe-load-balancers --region <region> \
 Check for orphaned EBS volumes — the gp3 volumes from segment 25 should be gone (the CNPG PVCs and their volumes deleted with the cluster). `available` volumes with the cluster tag are the orphans to watch for; an empty result means clean:
 
 ```bash
-aws ec2 describe-volumes --region <region> \
+aws ec2 describe-volumes --region us-west-2 \
   --filters Name=tag:kubernetes.io/cluster/fem-workshop,Values=owned Name=status,Values=available \
   --query 'Volumes[].VolumeId'
 ```
@@ -1470,18 +1470,18 @@ aws ec2 describe-volumes --region <region> \
 Both checks above returned an empty list, which is the clean case and the one you want students to see. Run the next two commands only if a check came back non-empty — name this on stage so students know the recovery, not just the happy path. Substitute the volume ID or load-balancer ARN the check above printed for the placeholders:
 
 ```bash
-aws ec2 delete-volume --region <region> --volume-id <volume-id>
-aws elbv2 delete-load-balancer --region <region> --load-balancer-arn <load-balancer-arn>
+aws ec2 delete-volume --region us-west-2 --volume-id <volume-id>
+aws elbv2 delete-load-balancer --region us-west-2 --load-balancer-arn <load-balancer-arn>
 ```
 
 Confirm the cluster itself is gone once the delete finishes — `eksctl` lists no cluster, and the context can be removed:
 
 ```bash
-eksctl get cluster --region <region>
+eksctl get cluster --region us-west-2
 ```
 
 ```text
-No clusters found in <region>.
+No clusters found in us-west-2.
 ```
 
 The cluster is down, no volumes or load balancers were left behind, and nothing is billing. That verification — not just the delete command — is the discipline. No one leaves Day 2 with a running EKS cluster.

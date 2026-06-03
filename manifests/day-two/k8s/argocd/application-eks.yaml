@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-app
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ALT-F4-LLC/fem-kubernetes
+    targetRevision: main
+    path: manifests/day-two/k8s/overlays/eks
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
