@@ -1259,8 +1259,8 @@ Call out the improvement over segment 23: piping the plaintext straight into `ku
 
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd \
-  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply --server-side -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.4.3/manifests/install.yaml
 kubectl rollout status deployment/argocd-server -n argocd
 ```
 
@@ -1281,8 +1281,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: <your-repo-url>
-    targetRevision: production
+    repoURL: https://github.com/ALT-F4-LLC/fem-kubernetes
+    targetRevision: main
     path: overlays/eks
   destination:
     server: https://kubernetes.default.svc
