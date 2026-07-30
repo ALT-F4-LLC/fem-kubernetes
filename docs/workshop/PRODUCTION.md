@@ -173,7 +173,7 @@ Roll out a good change first so the class sees a healthy rollout complete — bu
 
 ```bash
 kubectl set image deployment/sample-app -n app \
-  sample-app=<registry>/<image>:<a-known-good-tag>
+  sample-app="<registry>/<image>:<a-known-good-tag>"
 kubectl rollout status deployment/sample-app -n app
 ```
 
@@ -187,7 +187,7 @@ Now break it on purpose. Roll out a tag that does not exist (or an image that fa
 
 ```bash
 kubectl set image deployment/sample-app -n app \
-  sample-app=<registry>/<image>:does-not-exist
+  sample-app="<registry>/<image>:does-not-exist"
 kubectl rollout status deployment/sample-app -n app --timeout=60s
 ```
 
