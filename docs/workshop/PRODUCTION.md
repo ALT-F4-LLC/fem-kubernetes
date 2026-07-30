@@ -92,7 +92,7 @@ With a real metric showing, drive load at the data endpoint to push CPU up. Run 
 
 ```bash
 kubectl run -n app load --rm -it --image=busybox --restart=Never -- \
-  sh -c "while true; do wget -q -O- http://sample-app:8080/<the data endpoint>; done"
+  sh -c "while true; do wget -q -O- http://sample-app:8080/counter; done"
 ```
 
 In a second pane, watch the HPA and the replica count respond. CPU climbs past the 50% target and the HPA raises the desired replicas:
