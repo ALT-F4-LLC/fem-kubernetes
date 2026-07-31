@@ -604,7 +604,7 @@ Close the one gap GitOps left open: the database Secret could not be committed t
 **First two minutes, before anything else:** kick off the EKS cluster so it provisions in the background. The cluster config lives in the pre-flight materials; substitute your account and region:
 
 ```bash
-eksctl create cluster -f eks-cluster.yaml
+eksctl create cluster -f manifests/day-two/eks-cluster.yaml
 ```
 
 ```text
