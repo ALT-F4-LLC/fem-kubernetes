@@ -1512,7 +1512,7 @@ deployment.apps/aws-load-balancer-controller scaled
 Now start the cluster deletion. It runs for several minutes in the background while you walk the rest of the orphaned-resource check — do not wait silently on it. The region comes from the config, so pass only `-f` (eksctl rejects `--region` together with `-f`):
 
 ```bash
-eksctl delete cluster -f eks-cluster.yaml
+eksctl delete cluster -f manifests/day-two/eks-cluster.yaml (need to add full path)
 ```
 
 ```text
