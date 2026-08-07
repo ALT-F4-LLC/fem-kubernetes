@@ -675,6 +675,25 @@ kubectl patch nginxproxy nginx-gateway-proxy-config -n nginx-gateway --type=merg
 nginxproxy.gateway.nginx.org/nginx-gateway-proxy-config patched
 ```
 
+### Rebuilding the Cluster from Scratch
+
+Note: During the course, Erik ran into an issue with the cluster's configuration, so the rest of this section is covered over the next few lessons as he rebuilds the cluster from scratch. If you get stuck following along with him, these are the steps:
+
+```bash
+kubectl apply -f k8s/base/configmap.yaml
+kubectl apply --server-side -f https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v1.29.1/cnpg-1.29.1.yaml
+# Comment out the storageClass in the postgres-cluster.yaml: `# storageClass: standard`
+kubectl apply -f k8s/base/postgres-cluster.yaml
+kubectl apply -f k8s/base/deployment.yaml
+kubectl apply -f k8s/base/service.yaml
+
+# Test your deployment:
+curl http://<your-app-url>/healthz
+curl http://<your-app-url>/counter
+```
+
+The rest of the details below were from his original notes.
+
 Turn the app's Service from a `NodePort` into a plain `ClusterIP` — the `Gateway` fronts it now, so it no longer needs to be reachable directly from the host. Set `type: ClusterIP` **explicitly**: `kubectl apply` reconciles fields you declare, and omitting `type` would leave the live Service's existing `type: NodePort` in place rather than flipping it. Spell it out so the NodePort is actually retired.
 
 ```bash
